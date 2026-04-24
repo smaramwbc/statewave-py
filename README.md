@@ -13,7 +13,16 @@ pip install statewave-py
 ```python
 from statewave import StatewaveClient
 
+# Basic (no auth)
 with StatewaveClient("http://localhost:8100") as sw:
+    ...
+
+# With authentication and tenant
+with StatewaveClient(
+    "http://localhost:8100",
+    api_key="your-key",
+    tenant_id="acme",
+) as sw:
     # Record an episode
     sw.create_episode(
         subject_id="user-42",
@@ -39,6 +48,9 @@ with StatewaveClient("http://localhost:8100") as sw:
     facts = sw.search_memories("user-42", kind="profile_fact")
     for m in facts.memories:
         print(f"  [{m.kind}] {m.content}")
+
+    # Semantic search (requires embeddings)
+    results = sw.search_memories("user-42", query="billing", semantic=True)
 
     # Get timeline
     timeline = sw.get_timeline("user-42")

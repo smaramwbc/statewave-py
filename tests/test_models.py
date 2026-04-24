@@ -180,4 +180,4 @@ def test_public_exports():
     assert hasattr(statewave, "StatewaveAPIError")
     assert hasattr(statewave, "StatewaveConnectionError")
     assert hasattr(statewave, "__version__")
-    assert statewave.__version__ == "0.2.0"
+    assert statewave.__version__ == "0.4.0"

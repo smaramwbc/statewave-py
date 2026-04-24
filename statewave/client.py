@@ -12,6 +12,7 @@ from statewave.exceptions import (
     StatewaveTimeoutError,
 )
 from statewave.models import (
+    BatchCreateResult,
     CompileResult,
     ContextBundle,
     DeleteResult,
@@ -61,9 +62,21 @@ def _handle_transport_error(exc: Exception) -> None:
 class StatewaveClient:
     """Synchronous client for the Statewave API."""
 
-    def __init__(self, base_url: str = "http://localhost:8100", timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8100",
+        timeout: float = 30.0,
+        *,
+        api_key: str | None = None,
+        tenant_id: str | None = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._http = httpx.Client(base_url=self._base_url, timeout=timeout)
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        if tenant_id:
+            headers["X-Tenant-ID"] = tenant_id
+        self._http = httpx.Client(base_url=self._base_url, timeout=timeout, headers=headers)
 
     # -- Episodes ----------------------------------------------------------
 
@@ -92,6 +105,18 @@ class StatewaveClient:
             model=Episode,
         )
 
+    def create_episodes_batch(
+        self,
+        episodes: list[dict[str, Any]],
+    ) -> BatchCreateResult:
+        """Record multiple episodes in a single request (max 100)."""
+        return self._request(
+            "POST",
+            "/v1/episodes/batch",
+            json={"episodes": episodes},
+            model=BatchCreateResult,
+        )
+
     # -- Memories ----------------------------------------------------------
 
     def compile_memories(self, subject_id: str) -> CompileResult:
@@ -109,14 +134,17 @@ class StatewaveClient:
         *,
         kind: str | None = None,
         query: str | None = None,
+        semantic: bool = False,
         limit: int = 20,
     ) -> SearchResult:
-        """Search memories by kind or text query."""
+        """Search memories by kind, text query, or semantic similarity."""
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if kind:
             params["kind"] = kind
         if query:
             params["q"] = query
+        if semantic:
+            params["semantic"] = "true"
         return self._request("GET", "/v1/memories/search", params=params, model=SearchResult)
 
     # -- Context -----------------------------------------------------------
@@ -180,9 +208,21 @@ class StatewaveClient:
 class AsyncStatewaveClient:
     """Async client for the Statewave API."""
 
-    def __init__(self, base_url: str = "http://localhost:8100", timeout: float = 30.0) -> None:
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8100",
+        timeout: float = 30.0,
+        *,
+        api_key: str | None = None,
+        tenant_id: str | None = None,
+    ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._http = httpx.AsyncClient(base_url=self._base_url, timeout=timeout)
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["X-API-Key"] = api_key
+        if tenant_id:
+            headers["X-Tenant-ID"] = tenant_id
+        self._http = httpx.AsyncClient(base_url=self._base_url, timeout=timeout, headers=headers)
 
     # -- Episodes ----------------------------------------------------------
 
@@ -211,6 +251,18 @@ class AsyncStatewaveClient:
             model=Episode,
         )
 
+    async def create_episodes_batch(
+        self,
+        episodes: list[dict[str, Any]],
+    ) -> BatchCreateResult:
+        """Record multiple episodes in a single request (max 100)."""
+        return await self._request(
+            "POST",
+            "/v1/episodes/batch",
+            json={"episodes": episodes},
+            model=BatchCreateResult,
+        )
+
     # -- Memories ----------------------------------------------------------
 
     async def compile_memories(self, subject_id: str) -> CompileResult:
@@ -228,14 +280,17 @@ class AsyncStatewaveClient:
         *,
         kind: str | None = None,
         query: str | None = None,
+        semantic: bool = False,
         limit: int = 20,
     ) -> SearchResult:
-        """Search memories by kind or text query."""
+        """Search memories by kind, text query, or semantic similarity."""
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if kind:
             params["kind"] = kind
         if query:
             params["q"] = query
+        if semantic:
+            params["semantic"] = "true"
         return await self._request("GET", "/v1/memories/search", params=params, model=SearchResult)
 
     # -- Context -----------------------------------------------------------

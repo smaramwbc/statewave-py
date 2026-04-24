@@ -1,6 +1,6 @@
 """Statewave Python SDK."""
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"
 
 from statewave.client import AsyncStatewaveClient, StatewaveClient
 from statewave.exceptions import (
@@ -10,6 +10,7 @@ from statewave.exceptions import (
     StatewaveTimeoutError,
 )
 from statewave.models import (
+    BatchCreateResult,
     CompileResult,
     ContextBundle,
     DeleteResult,
@@ -33,4 +34,5 @@ __all__ = [
     "ContextBundle",
     "Timeline",
     "DeleteResult",
+    "BatchCreateResult",
 ]
