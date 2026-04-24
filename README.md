@@ -1,6 +1,6 @@
 # statewave-py
 
-Official Python SDK for [Statewave](https://github.com/statewave/statewave) — Memory OS for AI agents.
+Official Python SDK for [Statewave](https://github.com/smaramwbc/statewave) — Memory OS for AI agents.
 
 ## Install
 
