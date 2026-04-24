@@ -15,8 +15,10 @@ from statewave.models import (
     ContextBundle,
     DeleteResult,
     Episode,
+    ListSubjectsResult,
     Memory,
     SearchResult,
+    SubjectSummary,
     Timeline,
 )
 
@@ -35,4 +37,6 @@ __all__ = [
     "Timeline",
     "DeleteResult",
     "BatchCreateResult",
+    "SubjectSummary",
+    "ListSubjectsResult",
 ]

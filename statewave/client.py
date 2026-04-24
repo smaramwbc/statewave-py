@@ -17,6 +17,7 @@ from statewave.models import (
     ContextBundle,
     DeleteResult,
     Episode,
+    ListSubjectsResult,
     SearchResult,
     Timeline,
 )
@@ -176,6 +177,14 @@ class StatewaveClient:
         """Permanently delete all data for a subject."""
         return self._request("DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult)
 
+    def list_subjects(self, *, limit: int = 50, offset: int = 0) -> ListSubjectsResult:
+        """List all known subjects with episode/memory counts."""
+        return self._request(
+            "GET", "/v1/subjects",
+            params={"limit": limit, "offset": offset},
+            model=ListSubjectsResult,
+        )
+
     # -- Lifecycle ---------------------------------------------------------
 
     def close(self) -> None:
@@ -321,6 +330,14 @@ class AsyncStatewaveClient:
     async def delete_subject(self, subject_id: str) -> DeleteResult:
         """Permanently delete all data for a subject."""
         return await self._request("DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult)
+
+    async def list_subjects(self, *, limit: int = 50, offset: int = 0) -> ListSubjectsResult:
+        """List all known subjects with episode/memory counts."""
+        return await self._request(
+            "GET", "/v1/subjects",
+            params={"limit": limit, "offset": offset},
+            model=ListSubjectsResult,
+        )
 
     # -- Lifecycle ---------------------------------------------------------
 
