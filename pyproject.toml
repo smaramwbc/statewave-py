@@ -1,6 +1,6 @@
 [project]
 name = "statewave-py"
-version = "0.1.0"
+version = "0.2.0"
 description = "Official Python SDK for Statewave"
 readme = "README.md"
 license = {text = "Apache-2.0"}
