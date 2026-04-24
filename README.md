@@ -1,6 +1,6 @@
 # statewave-py
 
-Official Python SDK for [Statewave](https://github.com/smaramwbc/statewave) — Memory OS for AI agents.
+Official Python SDK for [Statewave](https://github.com/smaramwbc/statewave) — memory runtime for AI agents and applications.
 
 ## Install
 
@@ -44,6 +44,12 @@ with StatewaveClient(
     ctx = sw.get_context("user-42", task="Help with billing", max_tokens=300)
     print(ctx.assembled_context)
 
+    # Batch ingestion (up to 100)
+    sw.create_episodes_batch([
+        {"subject_id": "user-42", "source": "crm", "type": "note", "payload": {"text": "Prefers email"}},
+        {"subject_id": "user-42", "source": "crm", "type": "note", "payload": {"text": "Enterprise plan"}},
+    ])
+
     # Search memories by kind
     facts = sw.search_memories("user-42", kind="profile_fact")
     for m in facts.memories:
@@ -51,6 +57,11 @@ with StatewaveClient(
 
     # Semantic search (requires embeddings)
     results = sw.search_memories("user-42", query="billing", semantic=True)
+
+    # List all known subjects
+    subjects = sw.list_subjects()
+    for s in subjects.subjects:
+        print(f"  {s.subject_id}: {s.episode_count} episodes, {s.memory_count} memories")
 
     # Get timeline
     timeline = sw.get_timeline("user-42")
@@ -96,6 +107,9 @@ All response types are Pydantic models with full type hints:
 - `ContextBundle` — assembled context with facts, episodes, provenance
 - `Timeline` — chronological subject history
 - `DeleteResult` — deletion confirmation
+- `BatchCreateResult` — batch ingestion response
+- `SubjectSummary` — subject with episode/memory counts
+- `ListSubjectsResult` — paginated subject listing
 
 ## Running tests
 
