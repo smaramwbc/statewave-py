@@ -72,3 +72,14 @@ class DeleteResult(BaseModel):
 class BatchCreateResult(BaseModel):
     episodes_created: int
     episodes: list[Episode]
+
+
+class SubjectSummary(BaseModel):
+    subject_id: str
+    episode_count: int
+    memory_count: int
+
+
+class ListSubjectsResult(BaseModel):
+    subjects: list[SubjectSummary]
+    total: int
