@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import pytest
 import httpx
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 from statewave.models import (
     Episode,
     Memory,
     CompileResult,
-    SearchResult,
     ContextBundle,
     Timeline,
     DeleteResult,
