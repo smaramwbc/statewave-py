@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 (2026-04-25)
+
+- README updated with batch and subject listing examples
+- Automated release workflow (tag-push trigger, CI gate, PyPI trusted publishing)
+- PUBLISHING.md rewritten for automated process
+- Lint fixes (unused imports)
+
 ## 0.4.0 (2026-04-24)
 
 - Batch episode ingestion (`create_episodes_batch()`)
