@@ -2,7 +2,7 @@
 
 __version__ = "0.4.3"
 
-from statewave.client import AsyncStatewaveClient, StatewaveClient
+from statewave.client import AsyncStatewaveClient, StatewaveClient, RetryConfig, DEFAULT_RETRY, NO_RETRY
 from statewave.exceptions import (
     StatewaveAPIError,
     StatewaveConnectionError,
@@ -25,6 +25,9 @@ from statewave.models import (
 __all__ = [
     "StatewaveClient",
     "AsyncStatewaveClient",
+    "RetryConfig",
+    "DEFAULT_RETRY",
+    "NO_RETRY",
     "StatewaveError",
     "StatewaveAPIError",
     "StatewaveConnectionError",
