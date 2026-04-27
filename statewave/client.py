@@ -163,6 +163,17 @@ class StatewaveClient:
             body["max_tokens"] = max_tokens
         return self._request("POST", "/v1/context", json=body, model=ContextBundle)
 
+    def get_context_string(
+        self,
+        subject_id: str,
+        task: str,
+        *,
+        max_tokens: int | None = None,
+    ) -> str:
+        """Return just the assembled context string, ready to inject into a prompt."""
+        bundle = self.get_context(subject_id, task, max_tokens=max_tokens)
+        return bundle.assembled_context
+
     # -- Timeline ----------------------------------------------------------
 
     def get_timeline(self, subject_id: str) -> Timeline:
@@ -316,6 +327,17 @@ class AsyncStatewaveClient:
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
         return await self._request("POST", "/v1/context", json=body, model=ContextBundle)
+
+    async def get_context_string(
+        self,
+        subject_id: str,
+        task: str,
+        *,
+        max_tokens: int | None = None,
+    ) -> str:
+        """Return just the assembled context string, ready to inject into a prompt."""
+        bundle = await self.get_context(subject_id, task, max_tokens=max_tokens)
+        return bundle.assembled_context
 
     # -- Timeline ----------------------------------------------------------
 
