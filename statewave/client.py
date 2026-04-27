@@ -1,7 +1,10 @@
-"""Typed Statewave API client — sync and async."""
+"""Typed Statewave API client — sync and async, with configurable retry."""
 
 from __future__ import annotations
 
+import random
+import time
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -21,6 +24,46 @@ from statewave.models import (
     SearchResult,
     Timeline,
 )
+
+
+# ---------------------------------------------------------------------------
+# Retry configuration
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RetryConfig:
+    """Retry configuration for transient failures.
+
+    Attributes:
+        max_retries: Maximum number of retry attempts (0 = no retries).
+        backoff_base: Base delay in seconds for exponential backoff.
+        backoff_max: Maximum delay cap in seconds.
+        jitter: Whether to add random jitter to backoff delays.
+        retry_on_status: HTTP status codes that trigger a retry.
+    """
+
+    max_retries: int = 3
+    backoff_base: float = 0.5
+    backoff_max: float = 30.0
+    jitter: bool = True
+    retry_on_status: frozenset[int] = frozenset({429, 500, 502, 503, 504})
+
+    def delay_for_attempt(self, attempt: int, retry_after: float | None = None) -> float:
+        """Calculate delay for a given attempt number (0-indexed)."""
+        if retry_after is not None:
+            return min(retry_after, self.backoff_max)
+        delay = self.backoff_base * (2 ** attempt)
+        delay = min(delay, self.backoff_max)
+        if self.jitter:
+            delay *= random.uniform(0.5, 1.5)
+        return delay
+
+
+#: No retries — fail immediately on any error.
+NO_RETRY = RetryConfig(max_retries=0)
+
+#: Default retry config — 3 retries with 0.5s base backoff.
+DEFAULT_RETRY = RetryConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +99,17 @@ def _handle_transport_error(exc: Exception) -> None:
     raise StatewaveConnectionError(str(exc)) from exc
 
 
+def _parse_retry_after(resp: httpx.Response) -> float | None:
+    """Extract Retry-After header value as seconds, if present."""
+    value = resp.headers.get("retry-after")
+    if not value:
+        return None
+    try:
+        return float(value)
+    except ValueError:
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Sync client
 # ---------------------------------------------------------------------------
@@ -70,8 +124,10 @@ class StatewaveClient:
         *,
         api_key: str | None = None,
         tenant_id: str | None = None,
+        retry: RetryConfig | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._retry = retry if retry is not None else DEFAULT_RETRY
         headers: dict[str, str] = {}
         if api_key:
             headers["X-API-Key"] = api_key
@@ -210,15 +266,35 @@ class StatewaveClient:
     # -- Internal ----------------------------------------------------------
 
     def _request(self, method: str, path: str, *, model: type, json: Any = None, params: Any = None):
-        try:
-            resp = self._http.request(method, path, json=json, params=params)
-        except httpx.HTTPStatusError:
-            raise
-        except Exception as exc:
-            _handle_transport_error(exc)
-        if not resp.is_success:
+        last_exc: Exception | None = None
+        for attempt in range(self._retry.max_retries + 1):
+            try:
+                resp = self._http.request(method, path, json=json, params=params)
+            except httpx.HTTPStatusError:
+                raise
+            except Exception as exc:
+                # Connection/timeout error — retryable
+                if attempt < self._retry.max_retries:
+                    last_exc = exc
+                    time.sleep(self._retry.delay_for_attempt(attempt))
+                    continue
+                _handle_transport_error(exc)
+
+            if resp.is_success:
+                return model.model_validate(resp.json())
+
+            # Check if retryable status
+            if resp.status_code in self._retry.retry_on_status and attempt < self._retry.max_retries:
+                retry_after = _parse_retry_after(resp)
+                time.sleep(self._retry.delay_for_attempt(attempt, retry_after))
+                continue
+
             raise _parse_error(resp)
-        return model.model_validate(resp.json())
+
+        # Should not reach here, but just in case
+        if last_exc:
+            _handle_transport_error(last_exc)
+        raise StatewaveConnectionError("Retry attempts exhausted")
 
 
 # ---------------------------------------------------------------------------
@@ -235,8 +311,10 @@ class AsyncStatewaveClient:
         *,
         api_key: str | None = None,
         tenant_id: str | None = None,
+        retry: RetryConfig | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
+        self._retry = retry if retry is not None else DEFAULT_RETRY
         headers: dict[str, str] = {}
         if api_key:
             headers["X-API-Key"] = api_key
@@ -375,10 +453,29 @@ class AsyncStatewaveClient:
     # -- Internal ----------------------------------------------------------
 
     async def _request(self, method: str, path: str, *, model: type, json: Any = None, params: Any = None):
-        try:
-            resp = await self._http.request(method, path, json=json, params=params)
-        except Exception as exc:
-            _handle_transport_error(exc)
-        if not resp.is_success:
+        import asyncio
+
+        last_exc: Exception | None = None
+        for attempt in range(self._retry.max_retries + 1):
+            try:
+                resp = await self._http.request(method, path, json=json, params=params)
+            except Exception as exc:
+                if attempt < self._retry.max_retries:
+                    last_exc = exc
+                    await asyncio.sleep(self._retry.delay_for_attempt(attempt))
+                    continue
+                _handle_transport_error(exc)
+
+            if resp.is_success:
+                return model.model_validate(resp.json())
+
+            if resp.status_code in self._retry.retry_on_status and attempt < self._retry.max_retries:
+                retry_after = _parse_retry_after(resp)
+                await asyncio.sleep(self._retry.delay_for_attempt(attempt, retry_after))
+                continue
+
             raise _parse_error(resp)
-        return model.model_validate(resp.json())
+
+        if last_exc:
+            _handle_transport_error(last_exc)
+        raise StatewaveConnectionError("Retry attempts exhausted")
