@@ -88,6 +88,7 @@ def test_context_bundle_parse():
     ctx = ContextBundle.model_validate(data)
     assert ctx.token_estimate == 5
     assert ctx.task == "help user"
+    assert ctx.assembled_context == "## Task\nhelp user\n"
 
 
 def test_timeline_parse():
