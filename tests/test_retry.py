@@ -9,7 +9,7 @@ import httpx
 import pytest
 
 from statewave import StatewaveClient, RetryConfig, NO_RETRY
-from statewave.exceptions import StatewaveAPIError, StatewaveConnectionError, StatewaveTimeoutError
+from statewave.exceptions import StatewaveAPIError
 
 
 def _mock_response(status: int, *, headers: dict | None = None, json_body: dict | None = None):
