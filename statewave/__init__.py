@@ -11,6 +11,7 @@ from statewave.exceptions import (
 )
 from statewave.models import (
     BatchCreateResult,
+    CompileJob,
     CompileResult,
     ContextBundle,
     DeleteResult,
@@ -34,6 +35,7 @@ __all__ = [
     "StatewaveTimeoutError",
     "Episode",
     "Memory",
+    "CompileJob",
     "CompileResult",
     "SearchResult",
     "ContextBundle",

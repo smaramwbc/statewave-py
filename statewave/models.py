@@ -83,3 +83,14 @@ class SubjectSummary(BaseModel):
 class ListSubjectsResult(BaseModel):
     subjects: list[SubjectSummary]
     total: int
+
+
+class CompileJob(BaseModel):
+    """Status of an async compile job."""
+
+    job_id: str
+    status: str  # pending, running, completed, failed
+    subject_id: str
+    memories_created: int = 0
+    memories: list[Memory] = Field(default_factory=list)
+    error: str | None = None
