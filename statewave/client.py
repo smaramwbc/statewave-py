@@ -16,6 +16,7 @@ from statewave.exceptions import (
 )
 from statewave.models import (
     BatchCreateResult,
+    CompileJob,
     CompileResult,
     ContextBundle,
     DeleteResult,
@@ -184,6 +185,47 @@ class StatewaveClient:
             json={"subject_id": subject_id},
             model=CompileResult,
         )
+
+    def compile_memories_async(self, subject_id: str) -> CompileJob:
+        """Submit async compilation. Returns immediately with a job_id for polling.
+
+        Use `get_compile_status()` to poll for completion.
+        """
+        resp = self._http.request(
+            "POST", "/v1/memories/compile",
+            json={"subject_id": subject_id, "async": True},
+        )
+        if not resp.is_success:
+            raise _parse_error(resp)
+        return CompileJob.model_validate(resp.json())
+
+    def get_compile_status(self, job_id: str) -> CompileJob:
+        """Poll the status of an async compile job."""
+        return self._request(
+            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob,
+        )
+
+    def compile_memories_wait(
+        self,
+        subject_id: str,
+        *,
+        poll_interval: float = 0.5,
+        timeout: float = 60.0,
+    ) -> CompileJob:
+        """Submit async compilation and poll until completion or timeout.
+
+        Convenience method that combines submit + polling.
+        Raises TimeoutError if job doesn't complete within timeout.
+        """
+        job = self.compile_memories_async(subject_id)
+        elapsed = 0.0
+        while elapsed < timeout:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            job = self.get_compile_status(job.job_id)
+            if job.status in ("completed", "failed"):
+                return job
+        raise TimeoutError(f"Compile job {job.job_id} did not complete within {timeout}s")
 
     def search_memories(
         self,
@@ -371,6 +413,42 @@ class AsyncStatewaveClient:
             json={"subject_id": subject_id},
             model=CompileResult,
         )
+
+    async def compile_memories_async(self, subject_id: str) -> CompileJob:
+        """Submit async compilation. Returns immediately with a job_id for polling."""
+        resp = await self._http.request(
+            "POST", "/v1/memories/compile",
+            json={"subject_id": subject_id, "async": True},
+        )
+        if not resp.is_success:
+            raise _parse_error(resp)
+        return CompileJob.model_validate(resp.json())
+
+    async def get_compile_status(self, job_id: str) -> CompileJob:
+        """Poll the status of an async compile job."""
+        return await self._request(
+            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob,
+        )
+
+    async def compile_memories_wait(
+        self,
+        subject_id: str,
+        *,
+        poll_interval: float = 0.5,
+        timeout: float = 60.0,
+    ) -> CompileJob:
+        """Submit async compilation and poll until completion or timeout."""
+        import asyncio as _asyncio
+
+        job = await self.compile_memories_async(subject_id)
+        elapsed = 0.0
+        while elapsed < timeout:
+            await _asyncio.sleep(poll_interval)
+            elapsed += poll_interval
+            job = await self.get_compile_status(job.job_id)
+            if job.status in ("completed", "failed"):
+                return job
+        raise TimeoutError(f"Compile job {job.job_id} did not complete within {timeout}s")
 
     async def search_memories(
         self,
