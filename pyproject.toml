@@ -6,7 +6,7 @@ readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
 authors = [
-    {name = "Statewave", email = "hello@statewave.dev"},
+    {name = "Statewave", email = "hello@statewave.ai"},
 ]
 keywords = ["statewave", "ai", "agents", "memory", "context", "sdk"]
 classifiers = [
