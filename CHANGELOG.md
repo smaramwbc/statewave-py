@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 (2026-04-29)
+
+- Version bump to align with server v0.6.1 (support-agent intelligence stack)
+- Server now supports: resolution tracking, handoff packs, health scoring, SLA tracking, proactive alerts
+- SDK convenience methods for new endpoints planned for 0.7.0
+- No breaking changes to existing client methods
+
 ## 0.5.0 (2026-04-28)
 
 - Async compile support: `compile_memories_async()`, `get_compile_status()`, `compile_memories_wait()`
