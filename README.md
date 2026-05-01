@@ -104,6 +104,15 @@ except StatewaveConnectionError:
     print("Cannot connect to Statewave server")
 ```
 
+## Where does data go?
+
+The SDK is a thin client over the Statewave HTTP API. What leaves the network is determined by the **server's** compiler and embedding configuration, not by the SDK:
+
+- Default deployment (heuristic compiler, no embeddings) — nothing leaves your infrastructure.
+- LLM compiler or hosted embeddings — the server sends content to the provider you configure.
+
+See [Privacy & Data Flow](https://github.com/smaramwbc/statewave-docs/blob/main/architecture/privacy-and-data-flow.md) for the full breakdown.
+
 ## Models
 
 All response types are Pydantic models with full type hints:
