@@ -1,6 +1,6 @@
 [project]
 name = "statewave-py"
-version = "0.6.1"
+version = "0.6.2"
 description = "Official Python SDK for Statewave — Memory OS for AI agents"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -26,8 +26,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/smaramwbc/statewave-py"
-Documentation = "https://github.com/smaramwbc/statewave-py#readme"
+Homepage = "https://statewave.ai"
+Documentation = "https://statewave.ai"
 Repository = "https://github.com/smaramwbc/statewave-py"
 Issues = "https://github.com/smaramwbc/statewave-py/issues"
 Changelog = "https://github.com/smaramwbc/statewave-py/blob/main/CHANGELOG.md"
