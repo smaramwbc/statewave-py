@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 (unreleased) — pre-public PyPI rename
+
+The PyPI distribution name was renamed from `statewave-py` to **`statewave`** before public launch. The import path is unchanged (`from statewave import StatewaveClient`); only the install command differs.
+
+- PyPI name: `statewave-py` → `statewave`
+- Install: `pip install statewave`
+- Import: `from statewave import StatewaveClient` (unchanged)
+- Description aligned with the rest of the ecosystem: "Statewave Python SDK"
+- Repository URL stays at <https://github.com/smaramwbc/statewave-py>
+
+The legacy `statewave-py` PyPI package (last published at 0.6.2) will not receive new releases. PyPI does not support post-publish package renames natively, so we will not publish a 0.7.x under the old name. See PUBLISHING.md for the full handover plan.
+
 ## 0.6.2 (2026-05-02)
 
 - Package metadata: `Homepage` and `Documentation` URLs now point to https://statewave.ai
