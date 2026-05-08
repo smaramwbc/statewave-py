@@ -1,6 +1,6 @@
 """Statewave Python SDK."""
 
-__version__ = "0.6.2"
+__version__ = "0.7.0"
 
 from statewave.client import AsyncStatewaveClient, StatewaveClient, RetryConfig, DEFAULT_RETRY, NO_RETRY
 from statewave.exceptions import (

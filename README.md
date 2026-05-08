@@ -1,20 +1,22 @@
-# statewave-py
+# statewave (Python SDK)
 
 [![CI](https://github.com/smaramwbc/statewave-py/workflows/CI/badge.svg)](https://github.com/smaramwbc/statewave-py/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/statewave-py)](https://pypi.org/project/statewave-py/)
+[![PyPI](https://img.shields.io/pypi/v/statewave)](https://pypi.org/project/statewave/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-Official Python SDK for [Statewave](https://github.com/smaramwbc/statewave) — memory runtime for AI agents and applications.
+Statewave Python SDK — memory runtime for AI agents and applications. The TypeScript SDK lives at [`@statewavedev/sdk`](https://github.com/smaramwbc/statewave-ts).
 
-> **Part of the Statewave ecosystem:** [Server](https://github.com/smaramwbc/statewave) · **Python SDK** · [TypeScript SDK](https://github.com/smaramwbc/statewave-ts) · [Docs](https://github.com/smaramwbc/statewave-docs) · [Examples](https://github.com/smaramwbc/statewave-examples) · [Website + demo](https://statewave.ai) · [Admin](https://github.com/smaramwbc/statewave-admin)
+> **Part of the Statewave ecosystem:** [Server](https://github.com/smaramwbc/statewave) · **Python SDK** · [TypeScript SDK](https://github.com/smaramwbc/statewave-ts) · [Connectors](https://github.com/smaramwbc/statewave-connectors) · [Docs](https://github.com/smaramwbc/statewave-docs) · [Examples](https://github.com/smaramwbc/statewave-examples) · [Website + demo](https://statewave.ai) · [Admin](https://github.com/smaramwbc/statewave-admin)
 >
 > 📋 **Issues & feature requests:** [statewave/issues](https://github.com/smaramwbc/statewave/issues) (centralized tracker)
 
 ## Install
 
 ```bash
-pip install statewave-py
+pip install statewave
 ```
+
+> Before public launch, this package was distributed as `statewave-py` on PyPI. The import path (`from statewave import ...`) is unchanged.
 
 ## Quick start
 
