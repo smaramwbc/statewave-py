@@ -1,15 +1,19 @@
 # Publishing the Statewave Python SDK
 
-> Distributed on PyPI as **`statewave`** (renamed from `statewave-py` before public launch). The import path is `from statewave import ...` and was always that — only the PyPI distribution name changed.
+> Distributed on PyPI as **`statewave`**. The import path is `from statewave import ...`.
 
 Releases are automated via GitHub Actions. Pushing a `v*` tag triggers CI, builds the package, publishes to PyPI, and creates a GitHub Release.
 
-## One-time PyPI setup (before the first `statewave` release)
+## One-time PyPI setup
 
-1. Reserve the **`statewave`** PyPI name (we verified it's available; first push will claim it).
-2. Configure PyPI **trusted publishing** for the new project:
-   - <https://pypi.org/manage/account/publishing/> → Add a pending publisher for project `statewave`, repo `smaramwbc/statewave-py`, workflow `release.yml`, environment (optional) blank.
-3. After the first publish, confirm membership at <https://pypi.org/project/statewave/> → Manage → Collaborators.
+PyPI **trusted publishing** is configured for the project:
+
+- Project: `statewave`
+- Owner: `smaramwbc`
+- Repository: `statewave-py`
+- Workflow: `release.yml`
+
+No PyPI token is needed in CI — the workflow authenticates via OIDC.
 
 ## Release process
 
@@ -30,7 +34,7 @@ Releases are automated via GitHub Actions. Pushing a `v*` tag triggers CI, build
 6. The `release.yml` workflow will:
    - Run CI (lint + tests)
    - Build sdist and wheel
-   - Publish to PyPI via trusted publishing (no token needed)
+   - Publish to PyPI via trusted publishing
    - Create a GitHub Release with artifacts
 
 ## Pre-flight checklist
@@ -51,14 +55,6 @@ Releases are automated via GitHub Actions. Pushing a `v*` tag triggers CI, build
 - [ ] Import works: `python -c "import statewave; print(statewave.__version__)"`
 - [ ] CHANGELOG version matches tag
 
-## Legacy `statewave-py` PyPI handling
-
-The pre-public `statewave-py` PyPI package (last published at 0.6.2) is no longer used. PyPI does not support a one-line "deprecate" command the way npm does, but you should:
-
-1. Yank the old releases as-needed (`pip` will still resolve them; `--pre` semantics are unchanged) — yanking is reversible.
-2. Update the project description on PyPI (`statewave-py` → "Renamed to `statewave`. Run `pip install statewave`."), pushed via a metadata-only release if needed.
-3. Do **not** publish 0.7.x under the old name.
-
 ## Manual publish (fallback)
 
 If trusted publishing fails:
@@ -67,5 +63,5 @@ If trusted publishing fails:
 pip install --upgrade build twine
 python -m build
 python -m twine check dist/*
-python -m twine upload dist/*    # requires a PyPI API token with publish rights for `statewave`
+python -m twine upload dist/*    # requires a PyPI API token with publish rights
 ```
