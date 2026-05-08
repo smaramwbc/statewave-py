@@ -16,8 +16,6 @@ Statewave Python SDK — memory runtime for AI agents and applications. The Type
 pip install statewave
 ```
 
-> Before public launch, this package was distributed as `statewave-py` on PyPI. The import path (`from statewave import ...`) is unchanged.
-
 ## Quick start
 
 ```python
