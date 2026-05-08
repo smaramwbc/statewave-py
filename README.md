@@ -1,4 +1,4 @@
-# statewave (Python SDK)
+# Statewave Python SDK
 
 [![CI](https://github.com/smaramwbc/statewave-py/workflows/CI/badge.svg)](https://github.com/smaramwbc/statewave-py/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/statewave)](https://pypi.org/project/statewave/)
