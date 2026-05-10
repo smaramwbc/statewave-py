@@ -1,7 +1,7 @@
 [project]
 name = "statewave"
-version = "0.7.0"
-description = "Statewave Python SDK — memory runtime for AI agents and applications"
+version = "0.7.1"
+description = "Official Python SDK for Statewave — the open-source memory runtime for AI agents."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.11"
