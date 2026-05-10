@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 (2026-05-10)
+
+- Package `description` aligned to the canonical Statewave tagline: "Official Python SDK for Statewave — the open-source memory runtime for AI agents."
+- `__version__` bumped to 0.7.1.
+- No client API changes.
+
 ## 0.7.0 — first public release on PyPI as `statewave`
 
 - Install: `pip install statewave`
