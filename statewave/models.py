@@ -55,6 +55,38 @@ class ContextBundle(BaseModel):
     provenance: dict[str, Any] = Field(default_factory=dict)
     assembled_context: str = ""
     token_estimate: int = 0
+    receipt_id: str | None = None
+    receipt_emitted: bool = False
+
+
+class Receipt(BaseModel):
+    """State-assembly receipt — immutable audit artifact of a single
+    assembly call. See docs/state-assembly-receipts.md in the server
+    repository for the full schema and emission policy."""
+
+    receipt_id: str
+    parent_receipt_id: str | None = None
+    mode: str
+    query_id: str | None = None
+    task_id: str | None = None
+    tenant_id: str | None = None
+    subject_id: str
+    task: str
+    as_of: str
+    created_at: str
+    selected_entries: list[dict[str, Any]] = Field(default_factory=list)
+    policy: dict[str, Any] = Field(default_factory=dict)
+    output: dict[str, Any] = Field(default_factory=dict)
+    region: str | None = None
+    receipt_signature: str | None = None
+
+
+class ReceiptList(BaseModel):
+    """Paged list of receipts. `next_cursor` is None when there are no
+    further results."""
+
+    receipts: list[Receipt] = Field(default_factory=list)
+    next_cursor: str | None = None
 
 
 class Timeline(BaseModel):

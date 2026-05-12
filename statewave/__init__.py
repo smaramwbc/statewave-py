@@ -18,6 +18,8 @@ from statewave.models import (
     Episode,
     ListSubjectsResult,
     Memory,
+    Receipt,
+    ReceiptList,
     SearchResult,
     SubjectSummary,
     Timeline,
@@ -44,4 +46,6 @@ __all__ = [
     "BatchCreateResult",
     "SubjectSummary",
     "ListSubjectsResult",
+    "Receipt",
+    "ReceiptList",
 ]
