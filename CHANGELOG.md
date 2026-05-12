@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.2 (2026-05-12)
+
+- Version aligned with server v0.7.2 (per-kind memory TTL, Helm chart, query embedding cache, `MemoryStatus.tombstoned` rename).
+- `__version__` bumped to 0.7.2.
+- No client API changes — server-side release.
+
 ## 0.7.1 (2026-05-10)
 
 - Package `description` aligned to the canonical Statewave tagline: "Official Python SDK for Statewave — the open-source memory runtime for AI agents."
