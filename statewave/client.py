@@ -22,6 +22,8 @@ from statewave.models import (
     DeleteResult,
     Episode,
     ListSubjectsResult,
+    Receipt,
+    ReceiptList,
     SearchResult,
     Timeline,
 )
@@ -254,11 +256,32 @@ class StatewaveClient:
         task: str,
         *,
         max_tokens: int | None = None,
+        session_id: str | None = None,
+        emit_receipt: bool | None = None,
+        query_id: str | None = None,
+        task_id: str | None = None,
+        parent_receipt_id: str | None = None,
     ) -> ContextBundle:
-        """Assemble a ranked, token-bounded context bundle."""
+        """Assemble a ranked, token-bounded context bundle.
+
+        When `emit_receipt=True` (or the tenant's receipts config is
+        `always`), the returned bundle carries a `receipt_id` that can
+        be fetched via `get_receipt()`. See `Receipt` for the body
+        schema.
+        """
         body: dict[str, Any] = {"subject_id": subject_id, "task": task}
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
+        if session_id is not None:
+            body["session_id"] = session_id
+        if emit_receipt is not None:
+            body["emit_receipt"] = emit_receipt
+        if query_id is not None:
+            body["query_id"] = query_id
+        if task_id is not None:
+            body["task_id"] = task_id
+        if parent_receipt_id is not None:
+            body["parent_receipt_id"] = parent_receipt_id
         return self._request("POST", "/v1/context", json=body, model=ContextBundle)
 
     def get_context_string(
@@ -271,6 +294,32 @@ class StatewaveClient:
         """Return just the assembled context string, ready to inject into a prompt."""
         bundle = self.get_context(subject_id, task, max_tokens=max_tokens)
         return bundle.assembled_context
+
+    # -- Receipts ----------------------------------------------------------
+
+    def get_receipt(self, receipt_id: str) -> Receipt:
+        """Fetch a single state-assembly receipt by ULID."""
+        return self._request("GET", f"/v1/receipts/{receipt_id}", model=Receipt)
+
+    def list_receipts(
+        self,
+        subject_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> ReceiptList:
+        """List receipts for a subject, newest first. Cursor-paginated —
+        pass the previous response's `next_cursor` to fetch the next page."""
+        params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
+        if since is not None:
+            params["since"] = since
+        if until is not None:
+            params["until"] = until
+        if cursor is not None:
+            params["cursor"] = cursor
+        return self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
 
     # -- Timeline ----------------------------------------------------------
 
@@ -477,11 +526,31 @@ class AsyncStatewaveClient:
         task: str,
         *,
         max_tokens: int | None = None,
+        session_id: str | None = None,
+        emit_receipt: bool | None = None,
+        query_id: str | None = None,
+        task_id: str | None = None,
+        parent_receipt_id: str | None = None,
     ) -> ContextBundle:
-        """Assemble a ranked, token-bounded context bundle."""
+        """Assemble a ranked, token-bounded context bundle.
+
+        When `emit_receipt=True` (or the tenant's receipts config is
+        `always`), the returned bundle carries a `receipt_id` that can
+        be fetched via `get_receipt()`.
+        """
         body: dict[str, Any] = {"subject_id": subject_id, "task": task}
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
+        if session_id is not None:
+            body["session_id"] = session_id
+        if emit_receipt is not None:
+            body["emit_receipt"] = emit_receipt
+        if query_id is not None:
+            body["query_id"] = query_id
+        if task_id is not None:
+            body["task_id"] = task_id
+        if parent_receipt_id is not None:
+            body["parent_receipt_id"] = parent_receipt_id
         return await self._request("POST", "/v1/context", json=body, model=ContextBundle)
 
     async def get_context_string(
@@ -494,6 +563,33 @@ class AsyncStatewaveClient:
         """Return just the assembled context string, ready to inject into a prompt."""
         bundle = await self.get_context(subject_id, task, max_tokens=max_tokens)
         return bundle.assembled_context
+
+    # -- Receipts ----------------------------------------------------------
+
+    async def get_receipt(self, receipt_id: str) -> Receipt:
+        """Fetch a single state-assembly receipt by ULID."""
+        return await self._request(
+            "GET", f"/v1/receipts/{receipt_id}", model=Receipt
+        )
+
+    async def list_receipts(
+        self,
+        subject_id: str,
+        *,
+        since: str | None = None,
+        until: str | None = None,
+        cursor: str | None = None,
+        limit: int = 50,
+    ) -> ReceiptList:
+        """List receipts for a subject, newest first. Cursor-paginated."""
+        params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
+        if since is not None:
+            params["since"] = since
+        if until is not None:
+            params["until"] = until
+        if cursor is not None:
+            params["cursor"] = cursor
+        return await self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
 
     # -- Timeline ----------------------------------------------------------
 

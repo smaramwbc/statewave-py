@@ -11,6 +11,8 @@ from statewave.models import (
     Memory,
     CompileResult,
     ContextBundle,
+    Receipt,
+    ReceiptList,
     Timeline,
     DeleteResult,
 )
@@ -89,6 +91,52 @@ def test_context_bundle_parse():
     assert ctx.token_estimate == 5
     assert ctx.task == "help user"
     assert ctx.assembled_context == "## Task\nhelp user\n"
+    # Receipts fields default cleanly when the server is older than this SDK.
+    assert ctx.receipt_id is None
+    assert ctx.receipt_emitted is False
+
+
+def test_context_bundle_parse_with_receipt():
+    data = {
+        "subject_id": "user-1",
+        "task": "help user",
+        "assembled_context": "## Task\n",
+        "token_estimate": 2,
+        "receipt_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "receipt_emitted": True,
+    }
+    ctx = ContextBundle.model_validate(data)
+    assert ctx.receipt_id == "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    assert ctx.receipt_emitted is True
+
+
+def test_receipt_parse_minimal():
+    data = {
+        "receipt_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "parent_receipt_id": None,
+        "mode": "retrieval",
+        "subject_id": "user-1",
+        "task": "anything",
+        "as_of": "2026-05-12T10:00:00+00:00",
+        "created_at": "2026-05-12T10:00:00+00:00",
+        "selected_entries": [],
+        "policy": {"filters_applied": [], "filters_skipped": [], "mode": "log_only"},
+        "output": {
+            "context_hash": "abc",
+            "context_size_bytes": 0,
+            "canonicalization_version": 1,
+            "token_estimate": 0,
+        },
+    }
+    r = Receipt.model_validate(data)
+    assert r.mode == "retrieval"
+    assert r.policy["mode"] == "log_only"
+
+
+def test_receipt_list_parse_empty():
+    lst = ReceiptList.model_validate({"receipts": [], "next_cursor": None})
+    assert lst.receipts == []
+    assert lst.next_cursor is None
 
 
 def test_timeline_parse():
