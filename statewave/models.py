@@ -32,6 +32,10 @@ class Memory(BaseModel):
     source_episode_ids: list[uuid.UUID] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     status: str = "active"
+    sensitivity_labels: list[str] = Field(
+        default_factory=list,
+        description="Per-memory capability tags consumed by the policy layer (#50).",
+    )
     created_at: datetime
     updated_at: datetime
 
