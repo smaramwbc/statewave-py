@@ -22,6 +22,7 @@ from statewave.models import (
     DeleteResult,
     Episode,
     ListSubjectsResult,
+    Memory,
     Receipt,
     ReceiptList,
     SearchResult,
@@ -261,8 +262,14 @@ class StatewaveClient:
         query_id: str | None = None,
         task_id: str | None = None,
         parent_receipt_id: str | None = None,
+        caller_id: str | None = None,
+        caller_type: str | None = None,
     ) -> ContextBundle:
         """Assemble a ranked, token-bounded context bundle.
+
+        `caller_id` and `caller_type` are consumed by the
+        sensitivity-label policy layer (#50). When the tenant config
+        sets `require_caller_identity: true`, both are mandatory.
 
         When `emit_receipt=True` (or the tenant's receipts config is
         `always`), the returned bundle carries a `receipt_id` that can
@@ -282,7 +289,33 @@ class StatewaveClient:
             body["task_id"] = task_id
         if parent_receipt_id is not None:
             body["parent_receipt_id"] = parent_receipt_id
+        if caller_id is not None:
+            body["caller_id"] = caller_id
+        if caller_type is not None:
+            body["caller_type"] = caller_type
         return self._request("POST", "/v1/context", json=body, model=ContextBundle)
+
+    # -- Memory labels (#50) ----------------------------------------------
+
+    def set_memory_labels(
+        self,
+        memory_id: str,
+        labels: list[str],
+    ) -> Memory:
+        """Replace a memory's sensitivity_labels with the supplied list.
+
+        Labels are deduplicated, lowercased, and trimmed server-side
+        — the policy evaluator does exact match so normalizing at the
+        write boundary is the only place to do it safely. An empty
+        list clears all labels (memory becomes untagged → policy
+        default-allow).
+        """
+        return self._request(
+            "PATCH",
+            f"/v1/memories/{memory_id}/labels",
+            json={"sensitivity_labels": labels},
+            model=Memory,
+        )
 
     def get_context_string(
         self,
@@ -531,8 +564,14 @@ class AsyncStatewaveClient:
         query_id: str | None = None,
         task_id: str | None = None,
         parent_receipt_id: str | None = None,
+        caller_id: str | None = None,
+        caller_type: str | None = None,
     ) -> ContextBundle:
         """Assemble a ranked, token-bounded context bundle.
+
+        `caller_id` and `caller_type` are consumed by the
+        sensitivity-label policy layer (#50). When the tenant config
+        sets `require_caller_identity: true`, both are mandatory.
 
         When `emit_receipt=True` (or the tenant's receipts config is
         `always`), the returned bundle carries a `receipt_id` that can
@@ -551,7 +590,24 @@ class AsyncStatewaveClient:
             body["task_id"] = task_id
         if parent_receipt_id is not None:
             body["parent_receipt_id"] = parent_receipt_id
+        if caller_id is not None:
+            body["caller_id"] = caller_id
+        if caller_type is not None:
+            body["caller_type"] = caller_type
         return await self._request("POST", "/v1/context", json=body, model=ContextBundle)
+
+    async def set_memory_labels(
+        self,
+        memory_id: str,
+        labels: list[str],
+    ) -> Memory:
+        """Replace a memory's sensitivity_labels (#50)."""
+        return await self._request(
+            "PATCH",
+            f"/v1/memories/{memory_id}/labels",
+            json={"sensitivity_labels": labels},
+            model=Memory,
+        )
 
     async def get_context_string(
         self,

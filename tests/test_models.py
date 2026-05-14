@@ -45,6 +45,48 @@ def test_episode_parse():
     assert ep.source == "chat"
 
 
+def test_memory_parse_with_sensitivity_labels():
+    """Memory carries the policy-layer sensitivity_labels list."""
+    data = {
+        "id": "00000000-0000-0000-0000-000000000003",
+        "subject_id": "user-1",
+        "kind": "profile_fact",
+        "content": "alice@example.com",
+        "summary": "",
+        "confidence": 1.0,
+        "valid_from": "2026-01-01T00:00:00Z",
+        "source_episode_ids": [],
+        "metadata": {},
+        "status": "active",
+        "sensitivity_labels": ["pii", "email"],
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    m = Memory.model_validate(data)
+    assert m.sensitivity_labels == ["pii", "email"]
+
+
+def test_memory_parse_default_empty_labels():
+    """Server responses pre-#50 (or no-policy deployments) omit
+    sensitivity_labels — SDK must accept and default to []."""
+    data = {
+        "id": "00000000-0000-0000-0000-000000000004",
+        "subject_id": "user-1",
+        "kind": "profile_fact",
+        "content": "x",
+        "summary": "",
+        "confidence": 1.0,
+        "valid_from": "2026-01-01T00:00:00Z",
+        "source_episode_ids": [],
+        "metadata": {},
+        "status": "active",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    m = Memory.model_validate(data)
+    assert m.sensitivity_labels == []
+
+
 def test_memory_parse():
     data = {
         "id": "00000000-0000-0000-0000-000000000002",
