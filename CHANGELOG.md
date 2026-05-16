@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 (2026-05-16)
+
+### Changed
+
+- Version-alignment release only — **no API, behavior, or dependency changes**. The number is bumped to keep the workspace version consistent after the TypeScript SDK's independent 0.9.0 release (`@statewavedev/sdk`, breaking camelCase rename, statewave-ts#103). Code written against 0.8.0 works unchanged on 0.9.0.
+
 ## 0.8.0 (2026-05-14)
 
 ### Added — governance & audit surface
