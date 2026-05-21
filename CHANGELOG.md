@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.10.0 (2026-05-21)
+
+### Added — support-agent SDK methods
+
+Ergonomic wrappers for the support-agent endpoints (server v0.6+), on **both** the sync `StatewaveClient` and the `AsyncStatewaveClient`, so the support wedge no longer needs raw `httpx` calls alongside the SDK:
+
+- `get_health(subject_id) -> Health` — customer health score (0-100) with the explainable factors behind it.
+- `get_sla(subject_id, *, first_response_threshold_minutes=None, resolution_threshold_hours=None) -> SLASummary` — first-response / resolution times and breach counts, aggregated across the subject's sessions. Thresholds fall back to the server defaults (5 min / 24 h).
+- `create_handoff(subject_id, session_id, *, reason=None, max_tokens=None, ...) -> Handoff` — generate a structured escalation brief. Shares `get_context`'s caller-identity gate (`caller_id` / `caller_type`).
+- `create_resolution(subject_id, session_id, *, status="open", resolution_summary=None, metadata=None) -> Resolution` — create or update a resolution record; upserts by `subject_id` + `session_id`.
+- `list_resolutions(subject_id, *, status=None) -> list[Resolution]` — list resolution records for a subject, optionally filtered by status.
+
+New Pydantic models, all exported from the package root: `Health`, `HealthFactor`, `SLASummary`, `SessionSLA`, `Handoff`, `ResolutionSummaryItem`, `Resolution`.
+
+### Notes
+
+- Purely additive — no existing method, model, or behaviour changes. The HTTP wire contract is unchanged; these methods wrap endpoints the server has exposed since v0.6.
+- Auth, tenant-scoping, retry/backoff, and error handling are inherited from the shared request path. The internal `_request` helper gained an `is_list` flag so the array-returning `GET /v1/resolutions` parses each element into a `Resolution`.
+- Version kept aligned with the TypeScript SDK's `0.10.0` release.
+
 ## 0.9.0 (2026-05-16)
 
 ### Changed

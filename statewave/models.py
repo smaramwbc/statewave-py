@@ -130,3 +130,99 @@ class CompileJob(BaseModel):
     memories_created: int = 0
     memories: list[Memory] = Field(default_factory=list)
     error: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Support-agent models
+# ---------------------------------------------------------------------------
+
+class HealthFactor(BaseModel):
+    """One explainable factor behind a customer health score."""
+
+    signal: str
+    impact: int
+    detail: str
+
+
+class Health(BaseModel):
+    """Customer health score (0-100) with the factors that drove it."""
+
+    subject_id: str
+    score: int
+    state: str  # healthy | watch | at_risk
+    factors: list[HealthFactor] = Field(default_factory=list)
+
+
+class SessionSLA(BaseModel):
+    """SLA metrics for a single support session."""
+
+    session_id: str
+    status: str  # resolved | open
+    first_message_at: str | None = None
+    first_response_at: str | None = None
+    resolved_at: str | None = None
+    first_response_seconds: float | None = None
+    resolution_seconds: float | None = None
+    open_duration_seconds: float | None = None
+    first_response_breached: bool = False
+    resolution_breached: bool = False
+
+
+class SLASummary(BaseModel):
+    """Aggregate SLA metrics for a subject across all of its sessions."""
+
+    subject_id: str
+    total_sessions: int
+    resolved_sessions: int
+    open_sessions: int
+    avg_first_response_seconds: float | None = None
+    avg_resolution_seconds: float | None = None
+    first_response_breach_count: int = 0
+    resolution_breach_count: int = 0
+    sessions: list[SessionSLA] = Field(default_factory=list)
+
+
+class ResolutionSummaryItem(BaseModel):
+    """A prior resolution surfaced inside a handoff brief."""
+
+    session_id: str
+    status: str
+    summary: str | None = None
+    resolved_at: datetime | None = None
+
+
+class Handoff(BaseModel):
+    """Structured escalation brief — the handoff context pack."""
+
+    subject_id: str
+    session_id: str
+    reason: str
+    generated_at: datetime
+    customer_summary: str = ""
+    active_issue: str = ""
+    attempted_steps: list[str] = Field(default_factory=list)
+    key_facts: list[str] = Field(default_factory=list)
+    resolution_history: list[ResolutionSummaryItem] = Field(default_factory=list)
+    recent_context: list[str] = Field(default_factory=list)
+    health_score: int | None = None
+    health_state: str | None = None  # healthy | watch | at_risk
+    health_factors: list[HealthFactor] = Field(default_factory=list)
+    handoff_notes: str = ""
+    token_estimate: int = 0
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    receipt_id: str | None = None
+    receipt_emitted: bool = False
+
+
+class Resolution(BaseModel):
+    """Resolution tracking record for a support session."""
+
+    id: uuid.UUID
+    subject_id: str
+    session_id: str
+    status: str
+    resolution_summary: str | None = None
+    resolved_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime

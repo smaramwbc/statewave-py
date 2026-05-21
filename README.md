@@ -125,6 +125,55 @@ with StatewaveClient("http://localhost:8100", tenant_id="acme", api_key="…") a
 
 Receipts and the policy engine cooperate: every assembly call records its policy decisions into `receipt.policy.filters_applied` (one entry per memory the policy fired on) and `receipt.policy.filters_skipped` (per-rule summary of what didn't fire). In `log_only` mode (the tenant default) the receipt is the full audit trail without filtering; under `enforce` denied memories are dropped before they reach the assembly and the deny is still recorded. See [`receipts.md`](https://github.com/smaramwbc/statewave-docs/blob/main/receipts.md) and [`sensitivity-labels.md`](https://github.com/smaramwbc/statewave-docs/blob/main/sensitivity-labels.md) for the full schemas and policy YAML format.
 
+## Support-agent endpoints
+
+Statewave's support wedge — customer health scoring, SLA tracking, resolution state, and structured escalation briefs — is exposed through ergonomic methods on both the sync and async clients (server v0.6+).
+
+```python
+from statewave import StatewaveClient
+
+with StatewaveClient("http://localhost:8100") as sw:
+    # Customer health score (0-100) with the explainable factors behind it.
+    health = sw.get_health("customer:globex")
+    print(f"{health.score}/100 — {health.state}")
+    for f in health.factors:
+        print(f"  {f.signal}: {f.impact:+d} ({f.detail})")
+
+    # SLA metrics — first-response / resolution times and breach counts.
+    # Thresholds are optional; they default server-side to 5 min / 24 h.
+    sla = sw.get_sla(
+        "customer:globex",
+        first_response_threshold_minutes=10,
+        resolution_threshold_hours=48,
+    )
+    print(f"{sla.resolved_sessions}/{sla.total_sessions} resolved, "
+          f"{sla.resolution_breach_count} SLA breaches")
+
+    # Track resolution state for a session (upserts by subject + session).
+    sw.create_resolution(
+        "customer:globex",
+        "ticket-8842",
+        status="resolved",
+        resolution_summary="Issued refund for the duplicate charge",
+    )
+
+    # List resolutions, optionally filtered by status.
+    open_items = sw.list_resolutions("customer:globex", status="open")
+
+    # Generate a handoff context pack for escalation or shift change.
+    # handoff_notes is a pre-rendered markdown brief for human or LLM use.
+    handoff = sw.create_handoff(
+        "customer:globex",
+        "ticket-8842",
+        reason="escalation",
+        caller_id="agent-7",
+        caller_type="support_agent",
+    )
+    print(handoff.handoff_notes)
+```
+
+`get_health`, `get_sla`, `create_resolution`, `list_resolutions`, and `create_handoff` exist on `AsyncStatewaveClient` too, with identical signatures. `create_handoff` shares `get_context`'s caller-identity gate — when the tenant config sets `require_caller_identity: true`, both `caller_id` and `caller_type` are mandatory.
+
 ## Async client
 
 ```python
@@ -175,6 +224,10 @@ All response types are Pydantic models with full type hints:
 - `ListSubjectsResult` — paginated subject listing
 - `Receipt` — state-assembly audit artifact (v0.8) — ULID-addressable, content-hash integrity, per-entry supersession status
 - `ReceiptList` — cursor-paginated receipt listing
+- `Health` / `HealthFactor` — customer health score and its explainable factors
+- `SLASummary` / `SessionSLA` — SLA metrics, aggregate and per-session
+- `Handoff` / `ResolutionSummaryItem` — handoff context pack and its prior-resolution items
+- `Resolution` — resolution tracking record
 
 ## Running tests
 
