@@ -21,11 +21,15 @@ from statewave.models import (
     ContextBundle,
     DeleteResult,
     Episode,
+    Handoff,
+    Health,
     ListSubjectsResult,
     Memory,
     Receipt,
     ReceiptList,
+    Resolution,
     SearchResult,
+    SLASummary,
     Timeline,
 )
 
@@ -354,6 +358,126 @@ class StatewaveClient:
             params["cursor"] = cursor
         return self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
 
+    # -- Support: health, SLA, handoff, resolutions ------------------------
+
+    def get_health(self, subject_id: str) -> Health:
+        """Compute the customer health score (0-100) for a subject.
+
+        Returns the score, the state bucket (``healthy`` | ``watch`` |
+        ``at_risk``), and the explainable factors that drove it.
+        """
+        return self._request(
+            "GET", f"/v1/subjects/{subject_id}/health", model=Health,
+        )
+
+    def get_sla(
+        self,
+        subject_id: str,
+        *,
+        first_response_threshold_minutes: float | None = None,
+        resolution_threshold_hours: float | None = None,
+    ) -> SLASummary:
+        """Compute SLA metrics for a subject.
+
+        Aggregates first-response and resolution times across the
+        subject's sessions and flags breaches against the supplied
+        thresholds. Both thresholds fall back to the server defaults
+        (5 minutes / 24 hours) when omitted.
+        """
+        params: dict[str, Any] = {}
+        if first_response_threshold_minutes is not None:
+            params["first_response_threshold_minutes"] = first_response_threshold_minutes
+        if resolution_threshold_hours is not None:
+            params["resolution_threshold_hours"] = resolution_threshold_hours
+        return self._request(
+            "GET", f"/v1/subjects/{subject_id}/sla", params=params, model=SLASummary,
+        )
+
+    def create_handoff(
+        self,
+        subject_id: str,
+        session_id: str,
+        *,
+        reason: str | None = None,
+        max_tokens: int | None = None,
+        emit_receipt: bool | None = None,
+        query_id: str | None = None,
+        task_id: str | None = None,
+        parent_receipt_id: str | None = None,
+        caller_id: str | None = None,
+        caller_type: str | None = None,
+    ) -> Handoff:
+        """Generate a handoff context pack for escalation or shift change.
+
+        Produces a structured escalation brief; ``handoff_notes`` is a
+        pre-rendered markdown brief ready for human or LLM use.
+
+        ``caller_id`` and ``caller_type`` are consumed by the
+        sensitivity-label policy layer (#50); when the tenant config
+        sets ``require_caller_identity: true``, both are mandatory.
+        """
+        body: dict[str, Any] = {"subject_id": subject_id, "session_id": session_id}
+        if reason is not None:
+            body["reason"] = reason
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if emit_receipt is not None:
+            body["emit_receipt"] = emit_receipt
+        if query_id is not None:
+            body["query_id"] = query_id
+        if task_id is not None:
+            body["task_id"] = task_id
+        if parent_receipt_id is not None:
+            body["parent_receipt_id"] = parent_receipt_id
+        if caller_id is not None:
+            body["caller_id"] = caller_id
+        if caller_type is not None:
+            body["caller_type"] = caller_type
+        return self._request("POST", "/v1/handoff", json=body, model=Handoff)
+
+    def create_resolution(
+        self,
+        subject_id: str,
+        session_id: str,
+        *,
+        status: str = "open",
+        resolution_summary: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Resolution:
+        """Create or update a resolution record for a support session.
+
+        Upserts by ``subject_id`` + ``session_id``. ``status`` is one of
+        ``open``, ``resolved``, or ``unresolved``.
+        """
+        body: dict[str, Any] = {
+            "subject_id": subject_id,
+            "session_id": session_id,
+            "status": status,
+        }
+        if resolution_summary is not None:
+            body["resolution_summary"] = resolution_summary
+        if metadata is not None:
+            body["metadata"] = metadata
+        return self._request("POST", "/v1/resolutions", json=body, model=Resolution)
+
+    def list_resolutions(
+        self,
+        subject_id: str,
+        *,
+        status: str | None = None,
+    ) -> list[Resolution]:
+        """List resolution records for a subject.
+
+        Optionally filter to a single ``status`` (``open`` | ``resolved``
+        | ``unresolved``).
+        """
+        params: dict[str, Any] = {"subject_id": subject_id}
+        if status is not None:
+            params["status"] = status
+        return self._request(
+            "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
+        )
+
     # -- Timeline ----------------------------------------------------------
 
     def get_timeline(self, subject_id: str) -> Timeline:
@@ -389,7 +513,16 @@ class StatewaveClient:
 
     # -- Internal ----------------------------------------------------------
 
-    def _request(self, method: str, path: str, *, model: type, json: Any = None, params: Any = None):
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        model: type,
+        json: Any = None,
+        params: Any = None,
+        is_list: bool = False,
+    ):
         last_exc: Exception | None = None
         for attempt in range(self._retry.max_retries + 1):
             try:
@@ -405,7 +538,10 @@ class StatewaveClient:
                 _handle_transport_error(exc)
 
             if resp.is_success:
-                return model.model_validate(resp.json())
+                data = resp.json()
+                if is_list:
+                    return [model.model_validate(item) for item in data]
+                return model.model_validate(data)
 
             # Check if retryable status
             if resp.status_code in self._retry.retry_on_status and attempt < self._retry.max_retries:
@@ -647,6 +783,126 @@ class AsyncStatewaveClient:
             params["cursor"] = cursor
         return await self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
 
+    # -- Support: health, SLA, handoff, resolutions ------------------------
+
+    async def get_health(self, subject_id: str) -> Health:
+        """Compute the customer health score (0-100) for a subject.
+
+        Returns the score, the state bucket (``healthy`` | ``watch`` |
+        ``at_risk``), and the explainable factors that drove it.
+        """
+        return await self._request(
+            "GET", f"/v1/subjects/{subject_id}/health", model=Health,
+        )
+
+    async def get_sla(
+        self,
+        subject_id: str,
+        *,
+        first_response_threshold_minutes: float | None = None,
+        resolution_threshold_hours: float | None = None,
+    ) -> SLASummary:
+        """Compute SLA metrics for a subject.
+
+        Aggregates first-response and resolution times across the
+        subject's sessions and flags breaches against the supplied
+        thresholds. Both thresholds fall back to the server defaults
+        (5 minutes / 24 hours) when omitted.
+        """
+        params: dict[str, Any] = {}
+        if first_response_threshold_minutes is not None:
+            params["first_response_threshold_minutes"] = first_response_threshold_minutes
+        if resolution_threshold_hours is not None:
+            params["resolution_threshold_hours"] = resolution_threshold_hours
+        return await self._request(
+            "GET", f"/v1/subjects/{subject_id}/sla", params=params, model=SLASummary,
+        )
+
+    async def create_handoff(
+        self,
+        subject_id: str,
+        session_id: str,
+        *,
+        reason: str | None = None,
+        max_tokens: int | None = None,
+        emit_receipt: bool | None = None,
+        query_id: str | None = None,
+        task_id: str | None = None,
+        parent_receipt_id: str | None = None,
+        caller_id: str | None = None,
+        caller_type: str | None = None,
+    ) -> Handoff:
+        """Generate a handoff context pack for escalation or shift change.
+
+        Produces a structured escalation brief; ``handoff_notes`` is a
+        pre-rendered markdown brief ready for human or LLM use.
+
+        ``caller_id`` and ``caller_type`` are consumed by the
+        sensitivity-label policy layer (#50); when the tenant config
+        sets ``require_caller_identity: true``, both are mandatory.
+        """
+        body: dict[str, Any] = {"subject_id": subject_id, "session_id": session_id}
+        if reason is not None:
+            body["reason"] = reason
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if emit_receipt is not None:
+            body["emit_receipt"] = emit_receipt
+        if query_id is not None:
+            body["query_id"] = query_id
+        if task_id is not None:
+            body["task_id"] = task_id
+        if parent_receipt_id is not None:
+            body["parent_receipt_id"] = parent_receipt_id
+        if caller_id is not None:
+            body["caller_id"] = caller_id
+        if caller_type is not None:
+            body["caller_type"] = caller_type
+        return await self._request("POST", "/v1/handoff", json=body, model=Handoff)
+
+    async def create_resolution(
+        self,
+        subject_id: str,
+        session_id: str,
+        *,
+        status: str = "open",
+        resolution_summary: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> Resolution:
+        """Create or update a resolution record for a support session.
+
+        Upserts by ``subject_id`` + ``session_id``. ``status`` is one of
+        ``open``, ``resolved``, or ``unresolved``.
+        """
+        body: dict[str, Any] = {
+            "subject_id": subject_id,
+            "session_id": session_id,
+            "status": status,
+        }
+        if resolution_summary is not None:
+            body["resolution_summary"] = resolution_summary
+        if metadata is not None:
+            body["metadata"] = metadata
+        return await self._request("POST", "/v1/resolutions", json=body, model=Resolution)
+
+    async def list_resolutions(
+        self,
+        subject_id: str,
+        *,
+        status: str | None = None,
+    ) -> list[Resolution]:
+        """List resolution records for a subject.
+
+        Optionally filter to a single ``status`` (``open`` | ``resolved``
+        | ``unresolved``).
+        """
+        params: dict[str, Any] = {"subject_id": subject_id}
+        if status is not None:
+            params["status"] = status
+        return await self._request(
+            "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
+        )
+
     # -- Timeline ----------------------------------------------------------
 
     async def get_timeline(self, subject_id: str) -> Timeline:
@@ -682,7 +938,16 @@ class AsyncStatewaveClient:
 
     # -- Internal ----------------------------------------------------------
 
-    async def _request(self, method: str, path: str, *, model: type, json: Any = None, params: Any = None):
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        model: type,
+        json: Any = None,
+        params: Any = None,
+        is_list: bool = False,
+    ):
         import asyncio
 
         last_exc: Exception | None = None
@@ -697,7 +962,10 @@ class AsyncStatewaveClient:
                 _handle_transport_error(exc)
 
             if resp.is_success:
-                return model.model_validate(resp.json())
+                data = resp.json()
+                if is_list:
+                    return [model.model_validate(item) for item in data]
+                return model.model_validate(data)
 
             if resp.status_code in self._retry.retry_on_status and attempt < self._retry.max_retries:
                 retry_after = _parse_retry_after(resp)

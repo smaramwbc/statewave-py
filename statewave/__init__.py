@@ -1,6 +1,6 @@
 """Statewave Python SDK."""
 
-__version__ = "0.9.0"
+__version__ = "0.10.0"
 
 from statewave.client import AsyncStatewaveClient, StatewaveClient, RetryConfig, DEFAULT_RETRY, NO_RETRY
 from statewave.exceptions import (
@@ -16,11 +16,18 @@ from statewave.models import (
     ContextBundle,
     DeleteResult,
     Episode,
+    Handoff,
+    Health,
+    HealthFactor,
     ListSubjectsResult,
     Memory,
     Receipt,
     ReceiptList,
+    Resolution,
+    ResolutionSummaryItem,
     SearchResult,
+    SessionSLA,
+    SLASummary,
     SubjectSummary,
     Timeline,
 )
@@ -48,4 +55,11 @@ __all__ = [
     "ListSubjectsResult",
     "Receipt",
     "ReceiptList",
+    "Health",
+    "HealthFactor",
+    "SLASummary",
+    "SessionSLA",
+    "Handoff",
+    "ResolutionSummaryItem",
+    "Resolution",
 ]
