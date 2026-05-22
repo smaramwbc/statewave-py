@@ -10,6 +10,12 @@ Statewave Python SDK — memory runtime for AI agents and applications. The Type
 >
 > 📋 **Issues & feature requests:** [statewave/issues](https://github.com/smaramwbc/statewave/issues) (centralized tracker)
 
+> **New to Statewave?** This SDK is a thin client for a running **Statewave
+> server**. If you don't have one yet, the
+> [Getting Started guide](https://github.com/smaramwbc/statewave-docs/blob/main/getting-started.md)
+> brings one up with Docker Compose in about 5 minutes. Every example below
+> assumes a server reachable at `http://localhost:8100`.
+
 ## Install
 
 ```bash
