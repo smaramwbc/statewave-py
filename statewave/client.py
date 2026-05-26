@@ -10,9 +10,11 @@ from typing import Any
 import httpx
 
 from statewave.exceptions import (
+    UNREPLAYABLE_REASONS,
     StatewaveAPIError,
     StatewaveConnectionError,
     StatewaveTimeoutError,
+    StatewaveUnreplayableError,
 )
 from statewave.models import (
     BatchCreateResult,
@@ -27,6 +29,8 @@ from statewave.models import (
     Memory,
     Receipt,
     ReceiptList,
+    ReceiptReplayResult,
+    ReceiptVerifyResult,
     Resolution,
     SearchResult,
     SLASummary,
@@ -79,16 +83,48 @@ DEFAULT_RETRY = RetryConfig()
 # ---------------------------------------------------------------------------
 
 def _parse_error(resp: httpx.Response) -> StatewaveAPIError:
-    """Parse a structured error response from the Statewave API."""
+    """Parse a structured error response from the Statewave API.
+
+    Recognised structured codes:
+      - ``unreplayable.<reason>`` (HTTP 422 from
+        ``POST /v1/receipts/{id}/replay``) → ``StatewaveUnreplayableError``
+        with ``.reason`` set so callers can branch without
+        string-matching the error code.
+
+    Anything else → the generic ``StatewaveAPIError``."""
     try:
         body = resp.json()
         err = body.get("error", {})
+        code = err.get("code", "unknown")
+        message = err.get("message", resp.reason_phrase or "Unknown error")
+        details = err.get("details")
+        request_id = err.get("request_id")
+
+        # Promote unreplayable.* refusals into a dedicated exception so
+        # callers can `except StatewaveUnreplayableError` and switch on
+        # the structured reason. The server emits codes of the form
+        # `unreplayable.<reason>` (see server/api/receipts.py).
+        if (
+            resp.status_code == 422
+            and isinstance(code, str)
+            and code.startswith("unreplayable.")
+        ):
+            reason = code[len("unreplayable."):]
+            if reason in UNREPLAYABLE_REASONS:
+                return StatewaveUnreplayableError(
+                    reason=reason,
+                    status_code=resp.status_code,
+                    code=code,
+                    message=message,
+                    details=details,
+                    request_id=request_id,
+                )
         return StatewaveAPIError(
             status_code=resp.status_code,
-            code=err.get("code", "unknown"),
-            message=err.get("message", resp.reason_phrase or "Unknown error"),
-            details=err.get("details"),
-            request_id=err.get("request_id"),
+            code=code,
+            message=message,
+            details=details,
+            request_id=request_id,
         )
     except Exception:
         return StatewaveAPIError(
@@ -357,6 +393,72 @@ class StatewaveClient:
         if cursor is not None:
             params["cursor"] = cursor
         return self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
+
+    def verify_receipt(self, receipt_id: str) -> ReceiptVerifyResult:
+        """Verify the HMAC signature on a stored receipt (v0.9+ #157).
+
+        Calls ``GET /v1/receipts/{receipt_id}/verify``. Returns a
+        :class:`ReceiptVerifyResult` with ``valid`` ∈ ``{True, False, None}``:
+
+        - ``True`` → signature matches the canonical body
+          (``reason == "ok"``).
+        - ``False`` → signature does not cover the body
+          (``reason == "signature_mismatch"``).
+        - ``None`` → verdict could not be determined; ``reason`` is
+          one of ``"no_signature"`` (unsigned receipt — pre-v0.9 or
+          tenant didn't opt in), ``"key_unavailable"`` (the key id
+          rotated out of operator config), or
+          ``"unsupported_algorithm"`` (forward-compat).
+
+        Comparison is constant-time on the server side. The signing
+        key bytes never appear on the response — only the public
+        ``key_id`` is echoed.
+
+        Raises :class:`StatewaveAPIError` on 404 (receipt not found
+        or belongs to a different tenant — indistinguishable on the
+        wire) and other non-2xx responses.
+        """
+        return self._request(
+            "GET",
+            f"/v1/receipts/{receipt_id}/verify",
+            model=ReceiptVerifyResult,
+        )
+
+    def replay_receipt(self, receipt_id: str) -> ReceiptReplayResult:
+        """Re-run the original retrieval against current memories using
+        the original policy bundle captured in the receipt's
+        ``policy_snapshot`` (v0.9+ #159).
+
+        Calls ``POST /v1/receipts/{receipt_id}/replay``. Emits a new
+        ``mode="as_of_replay"`` receipt with ``parent_receipt_id``
+        pointing at the source; the original receipt is **never**
+        modified. Returns a :class:`ReceiptReplayResult` containing
+        the new ``replay_receipt_id`` plus a structural diff
+        envelope (added/removed selected entries, filter changes,
+        context-hash diff).
+
+        Semantic: current code + original policy. Replay is *not*
+        byte-for-byte reproduction; memories that were added,
+        tombstoned, or supersession-resolved between the original
+        emission and now will appear in the diff. See
+        ``docs/replay.md`` in the server repo for the design.
+
+        Raises :class:`StatewaveUnreplayableError` (HTTP 422) when:
+
+        - ``reason == "missing_policy_snapshot"`` — pre-v0.9 receipt.
+        - ``reason == "nested_replay"`` — the receipt is itself a
+          replay (v0.9 ships one level only).
+        - ``reason == "invalid_snapshot"`` — snapshot YAML failed
+          to parse (tampering / corruption).
+
+        Raises :class:`StatewaveAPIError` on 404 and other non-2xx
+        responses.
+        """
+        return self._request(
+            "POST",
+            f"/v1/receipts/{receipt_id}/replay",
+            model=ReceiptReplayResult,
+        )
 
     # -- Support: health, SLA, handoff, resolutions ------------------------
 
@@ -782,6 +884,26 @@ class AsyncStatewaveClient:
         if cursor is not None:
             params["cursor"] = cursor
         return await self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
+
+    async def verify_receipt(self, receipt_id: str) -> ReceiptVerifyResult:
+        """Async — verify the HMAC signature on a stored receipt (v0.9+ #157).
+        See :meth:`StatewaveClient.verify_receipt` for the full contract."""
+        return await self._request(
+            "GET",
+            f"/v1/receipts/{receipt_id}/verify",
+            model=ReceiptVerifyResult,
+        )
+
+    async def replay_receipt(self, receipt_id: str) -> ReceiptReplayResult:
+        """Async — replay a receipt against current memories with the
+        receipt's original policy bundle (v0.9+ #159). See
+        :meth:`StatewaveClient.replay_receipt` for the full contract,
+        including the :class:`StatewaveUnreplayableError` cases."""
+        return await self._request(
+            "POST",
+            f"/v1/receipts/{receipt_id}/replay",
+            model=ReceiptReplayResult,
+        )
 
     # -- Support: health, SLA, handoff, resolutions ------------------------
 

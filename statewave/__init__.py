@@ -1,13 +1,15 @@
 """Statewave Python SDK."""
 
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
 from statewave.client import AsyncStatewaveClient, StatewaveClient, RetryConfig, DEFAULT_RETRY, NO_RETRY
 from statewave.exceptions import (
+    UNREPLAYABLE_REASONS,
     StatewaveAPIError,
     StatewaveConnectionError,
     StatewaveError,
     StatewaveTimeoutError,
+    StatewaveUnreplayableError,
 )
 from statewave.models import (
     BatchCreateResult,
@@ -23,6 +25,9 @@ from statewave.models import (
     Memory,
     Receipt,
     ReceiptList,
+    ReceiptReplayDiff,
+    ReceiptReplayResult,
+    ReceiptVerifyResult,
     Resolution,
     ResolutionSummaryItem,
     SearchResult,
@@ -42,6 +47,8 @@ __all__ = [
     "StatewaveAPIError",
     "StatewaveConnectionError",
     "StatewaveTimeoutError",
+    "StatewaveUnreplayableError",
+    "UNREPLAYABLE_REASONS",
     "Episode",
     "Memory",
     "CompileJob",
@@ -55,6 +62,9 @@ __all__ = [
     "ListSubjectsResult",
     "Receipt",
     "ReceiptList",
+    "ReceiptVerifyResult",
+    "ReceiptReplayResult",
+    "ReceiptReplayDiff",
     "Health",
     "HealthFactor",
     "SLASummary",

@@ -85,9 +85,9 @@ with StatewaveClient(
     sw.delete_subject("user-42")
 ```
 
-## Governance & audit (v0.8)
+## Governance & audit (v0.8+)
 
-The SDK surfaces the [state-assembly receipts](https://github.com/smaramwbc/statewave-docs/blob/main/receipts.md) and [sensitivity-labels / policy](https://github.com/smaramwbc/statewave-docs/blob/main/sensitivity-labels.md) layer added in server v0.8.
+The SDK surfaces the [state-assembly receipts](https://github.com/smaramwbc/statewave-docs/blob/main/receipts.md) and [sensitivity-labels / policy](https://github.com/smaramwbc/statewave-docs/blob/main/sensitivity-labels.md) layer added in server v0.8, plus the v0.9 [HMAC signing](https://github.com/smaramwbc/statewave/blob/main/docs/state-assembly-receipts.md) and [as-of replay](https://github.com/smaramwbc/statewave/blob/main/docs/replay.md) surfaces.
 
 ```python
 from statewave import StatewaveClient
@@ -116,6 +116,30 @@ with StatewaveClient("http://localhost:8100", tenant_id="acme", api_key="…") a
     # List receipts for a subject, cursor-paginated, newest-first.
     for receipt in sw.list_receipts(subject_id="user-42", limit=10).receipts:
         print(receipt.receipt_id, receipt.task)
+
+    # Verify the HMAC signature on a stored receipt (v0.9+).
+    # `valid` is True | False | None — see ReceiptVerifyResult for the
+    # full reason vocabulary (no_signature / key_unavailable / etc.).
+    verdict = sw.verify_receipt(bundle.receipt_id)
+    if verdict.valid is True:
+        print(f"signature OK — signed by {verdict.key_id}")
+    elif verdict.valid is False:
+        print(f"signature mismatch — body may have been tampered with")
+    else:
+        print(f"verdict undetermined: {verdict.reason}")
+
+    # Replay the receipt against current memories using the original
+    # policy bundle captured on the receipt (v0.9+). Returns a diff
+    # envelope showing what changed since emission. Pre-v0.9 receipts
+    # raise StatewaveUnreplayableError(reason="missing_policy_snapshot").
+    from statewave import StatewaveUnreplayableError
+    try:
+        replay = sw.replay_receipt(bundle.receipt_id)
+        if replay.diff.context_hash["changed"]:
+            print(f"replay differs from original: new id {replay.replay_receipt_id}")
+    except StatewaveUnreplayableError as exc:
+        # exc.reason ∈ {"missing_policy_snapshot", "nested_replay", "invalid_snapshot"}
+        print(f"replay refused: {exc.reason}")
 
     # Set per-memory sensitivity labels (server normalizes — dedup, lowercase, trim).
     # Memories with labels become subject to any active policy bundle for the tenant.
@@ -222,7 +246,10 @@ All response types are Pydantic models with full type hints:
 - `BatchCreateResult` — batch ingestion response
 - `SubjectSummary` — subject with episode/memory counts
 - `ListSubjectsResult` — paginated subject listing
-- `Receipt` — state-assembly audit artifact (v0.8) — ULID-addressable, content-hash integrity, per-entry supersession status
+- `Receipt` — state-assembly audit artifact (v0.8+) — ULID-addressable, content-hash integrity, per-entry supersession status; v0.9 added HMAC signature fields (`receipt_signature_key_id`, `receipt_signature_algorithm`), `policy_snapshot` for replay, and `region` for residency
+- `ReceiptVerifyResult` — `valid` (True | False | None) + `key_id` + `algorithm` + `reason` for the v0.9 HMAC verify endpoint
+- `ReceiptReplayResult` / `ReceiptReplayDiff` — original + replay receipt ids plus the structural diff envelope from `POST /v1/receipts/{id}/replay` (v0.9)
+- `StatewaveUnreplayableError(reason=…)` — raised by `replay_receipt(…)` on HTTP 422; `reason ∈ {"missing_policy_snapshot", "nested_replay", "invalid_snapshot"}`
 - `ReceiptList` — cursor-paginated receipt listing
 - `Health` / `HealthFactor` — customer health score and its explainable factors
 - `SLASummary` / `SessionSLA` — SLA metrics, aggregate and per-session
