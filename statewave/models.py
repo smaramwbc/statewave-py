@@ -71,6 +71,9 @@ class Receipt(BaseModel):
     receipt_id: str
     parent_receipt_id: str | None = None
     mode: str
+    """``"retrieval"`` for ``/v1/context`` + ``/v1/handoff`` emissions,
+    ``"as_of_replay"`` for receipts emitted by
+    ``POST /v1/receipts/{id}/replay`` (v0.9+)."""
     query_id: str | None = None
     task_id: str | None = None
     tenant_id: str | None = None
@@ -82,7 +85,26 @@ class Receipt(BaseModel):
     policy: dict[str, Any] = Field(default_factory=dict)
     output: dict[str, Any] = Field(default_factory=dict)
     region: str | None = None
+    """Server region the receipt was emitted from (v0.9+ residency).
+    ``None`` in single-region deployments."""
     receipt_signature: str | None = None
+    """HMAC-SHA256 hex digest over the canonical body (v0.9+ #157).
+    ``None`` for pre-v0.9 receipts or tenants without signing
+    configured — those verify cleanly as
+    ``{valid: None, reason: "no_signature"}``."""
+    receipt_signature_key_id: str | None = None
+    """Operator key id used to sign (v0.9+). ``None`` when unsigned."""
+    receipt_signature_algorithm: str | None = None
+    """Algorithm + canonical-form version (e.g.
+    ``"hmac-sha256-canonical-v1"``) (v0.9+). ``None`` when unsigned."""
+    policy_snapshot: dict[str, Any] | None = None
+    """Embedded policy bundle YAML + hash + capture timestamp (v0.9+ #159).
+    Self-contained — the replay engine evaluates against this bundle
+    even if the live ``policy_bundles`` row has since been deleted or
+    overwritten. ``None`` for pre-v0.9 receipts; the inner pair
+    (``bundle_hash``, ``bundle_yaml``) may be ``None`` when no policy
+    was active at emission. See ``replay_receipt`` and the replay
+    refusal codes for details."""
 
 
 class ReceiptList(BaseModel):
@@ -91,6 +113,71 @@ class ReceiptList(BaseModel):
 
     receipts: list[Receipt] = Field(default_factory=list)
     next_cursor: str | None = None
+
+
+class ReceiptVerifyResult(BaseModel):
+    """Result of ``GET /v1/receipts/{id}/verify`` (v0.9+ #157).
+
+    ``valid`` is the verdict:
+
+    - ``True`` — HMAC matches the canonical body. ``reason == "ok"``.
+    - ``False`` — math checked, signature does not cover the body.
+      ``reason == "signature_mismatch"``.
+    - ``None`` — verdict could not be determined. ``reason`` is one
+      of:
+
+      * ``"no_signature"`` — receipt is unsigned (pre-v0.9 or
+        tenant didn't opt in to signing).
+      * ``"key_unavailable"`` — the ``key_id`` rotated out of
+        operator config; receipt is no longer verifiable on this
+        binary. Never a 500.
+      * ``"unsupported_algorithm"`` — receipt signed under a
+        canonical-form / algorithm variant this binary doesn't
+        implement (forward-compat).
+
+    Comparison is constant-time on the server side; the signing
+    key bytes never appear on the response."""
+
+    valid: bool | None
+    key_id: str | None
+    algorithm: str | None
+    reason: str
+
+
+class ReceiptReplayDiff(BaseModel):
+    """Structural diff envelope returned by
+    ``POST /v1/receipts/{id}/replay``. Entries are matched by their
+    ``memory_id`` / ``episode_id`` so re-ranking the same entry is
+    reported under ``common``, not as add+remove. See
+    ``docs/replay.md`` in the server repo for the design rationale."""
+
+    context_hash: dict[str, Any] = Field(default_factory=dict)
+    """``{"original": "<sha>", "replay": "<sha>", "changed": bool}``."""
+    selected_entries: dict[str, Any] = Field(default_factory=dict)
+    """``{"added": [...], "removed": [...], "common": int}``."""
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+    """``{"added": [...], "removed": [...]}``."""
+
+
+class ReceiptReplayResult(BaseModel):
+    """Response from ``POST /v1/receipts/{id}/replay`` (v0.9+ #159).
+
+    Semantic: current code + original policy. Replay re-runs the
+    original retrieval against the *current* memory state but with
+    the *original* policy bundle frozen on the receipt's
+    ``policy_snapshot``. The original receipt is never modified;
+    ``replay_receipt_id`` points at a new ``mode="as_of_replay"``
+    receipt linked back to the source via ``parent_receipt_id``.
+
+    ``replay_receipt_id`` is ``None`` when the replay-receipt write
+    itself failed (rare, fail-open path). The ``diff`` envelope is
+    still authoritative in that case — the original entries are
+    reported under ``removed`` so the caller can still see what
+    was on the source."""
+
+    original_receipt_id: str
+    replay_receipt_id: str | None
+    diff: ReceiptReplayDiff
 
 
 class Timeline(BaseModel):

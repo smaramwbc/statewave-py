@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.10.1 (2026-05-26)
+
+### Added — v0.9 receipt-governance convenience methods (closes [statewave#169](https://github.com/smaramwbc/statewave/issues/169))
+
+Closes the gap where the v0.9 server release (`statewave` v0.9.1 / v0.9.2) added `GET /v1/receipts/{id}/verify` and `POST /v1/receipts/{id}/replay` but the SDK at v0.10.0 only knew about pre-v0.9 receipt endpoints.
+
+- **`verify_receipt(receipt_id) -> ReceiptVerifyResult`** on both `StatewaveClient` (sync) and `AsyncStatewaveClient` (async). Calls `GET /v1/receipts/{id}/verify` and returns a typed result with `valid` ∈ `{True, False, None}` plus `key_id`, `algorithm`, and a structured `reason`. Comparison is constant-time on the server side; signing key bytes never appear on the response.
+- **`replay_receipt(receipt_id) -> ReceiptReplayResult`** on both clients. Calls `POST /v1/receipts/{id}/replay` and returns the original/replay receipt ids plus a typed `ReceiptReplayDiff` envelope (`context_hash`, `selected_entries.{added,removed,common}`, `filters_applied.{added,removed}`). The original receipt is never modified — replay only emits a new linked child.
+- **`StatewaveUnreplayableError(reason=…)`** (subclass of `StatewaveAPIError`) wraps the server's HTTP 422 refusal codes so callers can `except StatewaveUnreplayableError as exc: ... exc.reason` instead of parsing error code strings. `reason ∈ {"missing_policy_snapshot", "nested_replay", "invalid_snapshot"}` — the documented refusal vocabulary. A new `unreplayable.<reason>` code from a future server is preserved through the generic `StatewaveAPIError` path.
+
+### Changed — `Receipt` model gains v0.9 governance fields
+
+The `Receipt` Pydantic model now accepts the v0.9 fields the server began emitting in v0.9.1, all `Optional[T] = None` so pre-v0.9 receipts continue to validate cleanly:
+
+- `receipt_signature_key_id: str | None` — operator key id used to sign (#157).
+- `receipt_signature_algorithm: str | None` — e.g. `"hmac-sha256-canonical-v1"` (#157).
+- `policy_snapshot: dict[str, Any] | None` — embedded bundle YAML + hash + capture timestamp the replay engine evaluates against (#159).
+- `mode` docstring updated to call out the new `"as_of_replay"` value.
+
+Without this change, pre-v0.10.1 clients hitting a v0.9.1+ server would silently drop these fields.
+
+### Changed — PyPI Development Status classifier
+
+`Development Status :: 3 - Alpha` → `Development Status :: 4 - Beta`. The SDK has shipped major versions (v0.5–v0.10) against a production server and covers the entire v0.9 API surface; the Alpha label was stale.
+
+### Notes
+
+- Purely additive — no existing method, model, behaviour, or wire contract changes. Upgrading from v0.10.0 should be a drop-in replacement.
+- Version-aligned with `statewave-ts` v0.10.1, which lands the equivalent TypeScript surface in parallel.
+- Part of the `statewave` v0.9.2 stabilization patch — see [v0.9.2 release notes](https://github.com/smaramwbc/statewave/releases/tag/v0.9.2) for the coordinated context.
+
 ## 0.10.0 (2026-05-21)
 
 ### Added — support-agent SDK methods
