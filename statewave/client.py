@@ -190,21 +190,26 @@ class StatewaveClient:
         *,
         metadata: dict[str, Any] | None = None,
         provenance: dict[str, Any] | None = None,
+        session_id: str | None = None,
     ) -> Episode:
-        """Record a raw interaction episode."""
-        return self._request(
-            "POST",
-            "/v1/episodes",
-            json={
-                "subject_id": subject_id,
-                "source": source,
-                "type": type,
-                "payload": payload,
-                "metadata": metadata or {},
-                "provenance": provenance or {},
-            },
-            model=Episode,
-        )
+        """Record a raw interaction episode.
+
+        Pass ``session_id`` to attribute the episode to a specific session —
+        the server's session-aware ranking uses it to surface active-session
+        content in context bundles. Omit it for one-off events; the server
+        treats absence as "no session pin" rather than auto-assigning.
+        """
+        body: dict[str, Any] = {
+            "subject_id": subject_id,
+            "source": source,
+            "type": type,
+            "payload": payload,
+            "metadata": metadata or {},
+            "provenance": provenance or {},
+        }
+        if session_id is not None:
+            body["session_id"] = session_id
+        return self._request("POST", "/v1/episodes", json=body, model=Episode)
 
     def create_episodes_batch(
         self,
@@ -695,21 +700,26 @@ class AsyncStatewaveClient:
         *,
         metadata: dict[str, Any] | None = None,
         provenance: dict[str, Any] | None = None,
+        session_id: str | None = None,
     ) -> Episode:
-        """Record a raw interaction episode."""
-        return await self._request(
-            "POST",
-            "/v1/episodes",
-            json={
-                "subject_id": subject_id,
-                "source": source,
-                "type": type,
-                "payload": payload,
-                "metadata": metadata or {},
-                "provenance": provenance or {},
-            },
-            model=Episode,
-        )
+        """Record a raw interaction episode.
+
+        Pass ``session_id`` to attribute the episode to a specific session —
+        the server's session-aware ranking uses it to surface active-session
+        content in context bundles. Omit it for one-off events; the server
+        treats absence as "no session pin" rather than auto-assigning.
+        """
+        body: dict[str, Any] = {
+            "subject_id": subject_id,
+            "source": source,
+            "type": type,
+            "payload": payload,
+            "metadata": metadata or {},
+            "provenance": provenance or {},
+        }
+        if session_id is not None:
+            body["session_id"] = session_id
+        return await self._request("POST", "/v1/episodes", json=body, model=Episode)
 
     async def create_episodes_batch(
         self,

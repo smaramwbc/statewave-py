@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.10.2 (2026-05-27)
+
+### Added — `session_id` on `create_episode` (closes [statewave#174](https://github.com/smaramwbc/statewave/issues/174))
+
+`create_episode` and `AsyncStatewaveClient.create_episode` accept an optional `session_id` keyword argument that is forwarded to `POST /v1/episodes`. The server has accepted this field since the session-aware ranking work, but the SDK signature was missing it — callers had to drop down to raw HTTP to use the surface. v0.9.4 launch-readiness picked this up as a visible REST-contract / SDK-signature mismatch worth closing before v1.0.
+
+- `session_id: str | None = None` keyword-only argument on both client classes.
+- Field is omitted from the request body when `None` (matches the server's "no session pin" semantics — the server does not auto-assign).
+- Round-trip is write-only: the server's `Episode` response does not echo `session_id`, so the `Episode` model is unchanged.
+- Pure-additive surface change. No breaking move; existing call sites continue to work unchanged.
+
+### Tests
+
+- `test_create_episode_forwards_session_id` (sync) and the async counterpart in `tests/test_episodes.py` assert the field reaches the request body exactly once when set, and that absence keeps the previous wire shape byte-for-byte unchanged.
+
 ## 0.10.1 (2026-05-26)
 
 ### Added — v0.9 receipt-governance convenience methods (closes [statewave#169](https://github.com/smaramwbc/statewave/issues/169))
