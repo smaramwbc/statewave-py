@@ -313,3 +313,36 @@ class Resolution(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+
+class SuggestedLabelMemory(BaseModel):
+    """A memory carrying auto-derived suggested labels, for operator review (v0.9 #158)."""
+
+    id: str
+    subject_id: str
+    tenant_id: str | None = None
+    kind: str
+    content: str
+    summary: str
+    suggested_labels: list[str]
+    sensitivity_labels: list[str]
+    created_at: str
+
+
+class SuggestedLabelsList(BaseModel):
+    """Paginated list of memories with suggested labels — the admin review surface."""
+
+    memories: list[SuggestedLabelMemory]
+    total: int
+    limit: int
+    offset: int
+    catalogue: list[dict[str, str]] = Field(default_factory=list)
+
+
+class PromoteLabelsResult(BaseModel):
+    """Result of promoting suggested labels into authoritative sensitivity_labels (v0.9 #160)."""
+
+    memory_id: str
+    promoted: list[str]
+    sensitivity_labels: list[str]
+    suggested_labels: list[str]

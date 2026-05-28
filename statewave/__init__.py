@@ -32,8 +32,11 @@ from statewave.models import (
     ResolutionSummaryItem,
     SearchResult,
     SessionSLA,
+    PromoteLabelsResult,
     SLASummary,
     SubjectSummary,
+    SuggestedLabelMemory,
+    SuggestedLabelsList,
     Timeline,
 )
 
@@ -72,4 +75,7 @@ __all__ = [
     "Handoff",
     "ResolutionSummaryItem",
     "Resolution",
+    "SuggestedLabelMemory",
+    "SuggestedLabelsList",
+    "PromoteLabelsResult",
 ]

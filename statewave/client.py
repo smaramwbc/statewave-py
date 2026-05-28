@@ -27,6 +27,7 @@ from statewave.models import (
     Health,
     ListSubjectsResult,
     Memory,
+    PromoteLabelsResult,
     Receipt,
     ReceiptList,
     ReceiptReplayResult,
@@ -34,6 +35,7 @@ from statewave.models import (
     Resolution,
     SearchResult,
     SLASummary,
+    SuggestedLabelsList,
     Timeline,
 )
 
@@ -360,6 +362,61 @@ class StatewaveClient:
             f"/v1/memories/{memory_id}/labels",
             json={"sensitivity_labels": labels},
             model=Memory,
+        )
+
+    def list_suggested_labels(
+        self,
+        *,
+        tenant_id: str | None = None,
+        subject_id: str | None = None,
+        label: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> SuggestedLabelsList:
+        """List memories carrying auto-derived suggested labels — the review
+        surface for the promote workflow (admin/governance, v0.9 #158).
+
+        Requires auto-labeling enabled server-side
+        (``STATEWAVE_AUTO_LABELING_ENABLED=true``). Pair with
+        :meth:`promote_suggested_labels` to commit a reviewed suggestion.
+        """
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if tenant_id is not None:
+            params["tenant_id"] = tenant_id
+        if subject_id is not None:
+            params["subject_id"] = subject_id
+        if label is not None:
+            params["label"] = label
+        return self._request(
+            "GET",
+            "/admin/memories/with-suggested-labels",
+            params=params,
+            model=SuggestedLabelsList,
+        )
+
+    def promote_suggested_labels(
+        self,
+        memory_id: str,
+        labels: list[str],
+        *,
+        tenant_id: str | None = None,
+    ) -> PromoteLabelsResult:
+        """Promote a subset of a memory's suggested labels into authoritative
+        ``sensitivity_labels`` (admin/governance, v0.9 #160).
+
+        Review-only: every label in ``labels`` must already be a current
+        suggestion on the memory, else the server returns 422. Promoted labels
+        are removed from the suggestions so they don't re-surface in review.
+        """
+        params: dict[str, Any] = {}
+        if tenant_id is not None:
+            params["tenant_id"] = tenant_id
+        return self._request(
+            "POST",
+            f"/admin/memories/{memory_id}/promote-labels",
+            json={"labels": labels},
+            params=params,
+            model=PromoteLabelsResult,
         )
 
     def get_context_string(
@@ -855,6 +912,51 @@ class AsyncStatewaveClient:
             f"/v1/memories/{memory_id}/labels",
             json={"sensitivity_labels": labels},
             model=Memory,
+        )
+
+    async def list_suggested_labels(
+        self,
+        *,
+        tenant_id: str | None = None,
+        subject_id: str | None = None,
+        label: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> SuggestedLabelsList:
+        """List memories carrying auto-derived suggested labels (admin/governance, v0.9 #158)."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if tenant_id is not None:
+            params["tenant_id"] = tenant_id
+        if subject_id is not None:
+            params["subject_id"] = subject_id
+        if label is not None:
+            params["label"] = label
+        return await self._request(
+            "GET",
+            "/admin/memories/with-suggested-labels",
+            params=params,
+            model=SuggestedLabelsList,
+        )
+
+    async def promote_suggested_labels(
+        self,
+        memory_id: str,
+        labels: list[str],
+        *,
+        tenant_id: str | None = None,
+    ) -> PromoteLabelsResult:
+        """Promote a subset of a memory's suggested labels into authoritative
+        ``sensitivity_labels`` (admin/governance, v0.9 #160). Review-only —
+        every label must already be a current suggestion (else 422)."""
+        params: dict[str, Any] = {}
+        if tenant_id is not None:
+            params["tenant_id"] = tenant_id
+        return await self._request(
+            "POST",
+            f"/admin/memories/{memory_id}/promote-labels",
+            json={"labels": labels},
+            params=params,
+            model=PromoteLabelsResult,
         )
 
     async def get_context_string(
