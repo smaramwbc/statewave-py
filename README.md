@@ -145,6 +145,15 @@ with StatewaveClient("http://localhost:8100", tenant_id="acme", api_key="…") a
     # Memories with labels become subject to any active policy bundle for the tenant.
     updated = sw.set_memory_labels(memory_id="mem-uuid", labels=["pii", "financial"])
     print(updated.sensitivity_labels)  # → ["financial", "pii"]
+
+    # Auto-labeling review workflow (server v0.9 #158/#160; needs
+    # STATEWAVE_AUTO_LABELING_ENABLED=true). Detectors stamp *suggested* labels;
+    # an operator reviews and promotes them into authoritative sensitivity_labels.
+    review = sw.list_suggested_labels(label="financial.card")
+    for m in review.memories:
+        print(m.id, m.suggested_labels)  # → e.g. ["financial.card"]
+    promoted = sw.promote_suggested_labels(memory_id="mem-uuid", labels=["financial.card"])
+    print(promoted.sensitivity_labels)  # now authoritative
 ```
 
 Receipts and the policy engine cooperate: every assembly call records its policy decisions into `receipt.policy.filters_applied` (one entry per memory the policy fired on) and `receipt.policy.filters_skipped` (per-rule summary of what didn't fire). In `log_only` mode (the tenant default) the receipt is the full audit trail without filtering; under `enforce` denied memories are dropped before they reach the assembly and the deny is still recorded. See [`receipts.md`](https://github.com/smaramwbc/statewave-docs/blob/main/receipts.md) and [`sensitivity-labels.md`](https://github.com/smaramwbc/statewave-docs/blob/main/sensitivity-labels.md) for the full schemas and policy YAML format.
