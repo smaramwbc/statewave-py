@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.10.2 (2026-05-27)
+## 1.0.0 (2026-06-09)
+
+First **stable** public release of the Statewave Python SDK, cut alongside the Statewave v1.0 server. The typed surface matches the `/v1` REST contract and is semver-stable from 1.0.0 forward. This release supersedes the never-published 0.10.2 prep and folds in its changes.
+
+### Added — governance helpers for suggested-label review (closes [statewave#176](https://github.com/smaramwbc/statewave/issues/176))
+
+- `list_suggested_labels()` → `GET /admin/memories/with-suggested-labels` and `promote_suggested_labels()` → `POST /admin/memories/{id}/promote-labels`, on both `StatewaveClient` and `AsyncStatewaveClient`.
+- New exported typed models: `SuggestedLabelMemory`, `SuggestedLabelsList`, `PromoteLabelsResult`.
+- A bounded SDK-only wrapper over the existing v0.9 admin endpoints — no server change, no new policy semantics. Auto-labeling remains opt-in (`STATEWAVE_AUTO_LABELING_ENABLED`); the default v1.0 user does not hit this surface.
+
+### Added — `session_id` on `create_episode` (closes [statewave#174](https://github.com/smaramwbc/statewave/issues/174))
+
+- `session_id: str | None = None` keyword-only argument on both client classes, forwarded to `POST /v1/episodes` and omitted from the body when `None`. Pure-additive; existing call sites are unaffected. (Originally prepared as 0.10.2, below.)
+
+## 0.10.2 (2026-05-27 — unreleased; folded into 1.0.0)
 
 ### Added — `session_id` on `create_episode` (closes [statewave#174](https://github.com/smaramwbc/statewave/issues/174))
 
