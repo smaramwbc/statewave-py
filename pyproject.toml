@@ -10,7 +10,7 @@ authors = [
 ]
 keywords = ["statewave", "ai", "agents", "memory", "context", "sdk"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
@@ -29,7 +29,7 @@ dependencies = [
 Homepage = "https://statewave.ai"
 Documentation = "https://statewave.ai"
 Repository = "https://github.com/smaramwbc/statewave-py"
-Issues = "https://github.com/smaramwbc/statewave-py/issues"
+Issues = "https://github.com/smaramwbc/statewave/issues"
 Changelog = "https://github.com/smaramwbc/statewave-py/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
