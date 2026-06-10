@@ -48,6 +48,7 @@ with StatewaveClient(
                 {"role": "assistant", "content": "Welcome Alice!"},
             ]
         },
+        session_id="ticket-8842",  # optional — pins the episode to a session (1.0+)
     )
 
     # Compile memories (idempotent)

@@ -70,6 +70,8 @@ This policy applies to all Statewave repositories:
 - `statewave` - Core backend
 - Python SDK (`pip install statewave`, source: github.com/smaramwbc/statewave-py)
 - TypeScript SDK (`npm install @statewavedev/sdk`, source: github.com/smaramwbc/statewave-ts)
+- Connectors (`npm install @statewavedev/connectors-*`, source: github.com/smaramwbc/statewave-connectors)
+- `statewave-bench` - Benchmark harness
 - `statewave-docs` - Documentation
 - `statewave-examples` - Examples
 - `statewave-web` - Marketing site + embedded demo

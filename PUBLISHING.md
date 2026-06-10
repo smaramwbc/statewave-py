@@ -22,13 +22,13 @@ No PyPI token is needed in CI — the workflow authenticates via OIDC.
 3. **Commit** to main:
    ```bash
    git add pyproject.toml statewave/__init__.py CHANGELOG.md
-   git commit -m "release: v0.X.Y"
+   git commit -m "release: vX.Y.Z"
    git push
    ```
 4. **Wait for CI to pass** on the main branch push.
 5. **Tag and push**:
    ```bash
-   git tag v0.X.Y
+   git tag vX.Y.Z
    git push --tags
    ```
 6. The `release.yml` workflow will:
@@ -51,7 +51,7 @@ No PyPI token is needed in CI — the workflow authenticates via OIDC.
 ## Post-release verification
 
 - [ ] GitHub Release exists at `https://github.com/smaramwbc/statewave-py/releases`
-- [ ] PyPI package updated: `pip install statewave==0.X.Y`
+- [ ] PyPI package updated: `pip install statewave==X.Y.Z`
 - [ ] Import works: `python -c "import statewave; print(statewave.__version__)"`
 - [ ] CHANGELOG version matches tag
 
