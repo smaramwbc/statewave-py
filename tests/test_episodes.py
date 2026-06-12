@@ -131,3 +131,36 @@ async def test_async_create_episode_forwards_session_id():
 
     body = mock_req.call_args.kwargs["json"]
     assert body["session_id"] == "sess-xyz-999"
+
+
+# ---------------------------------------------------------------------------
+# idempotency_key forwarding
+# ---------------------------------------------------------------------------
+
+
+def test_create_episode_forwards_idempotency_key():
+    """idempotency_key is forwarded verbatim so re-ingest de-dups server-side."""
+    client = StatewaveClient(retry=NO_RETRY)
+    mock_req = MagicMock(return_value=_resp(200, _EPISODE_RESPONSE))
+    with patch.object(client._http, "request", mock_req):
+        client.create_episode(
+            subject_id="subj-1",
+            source="git",
+            type="git.commit",
+            payload={"text": "hi"},
+            idempotency_key="git:commit:abc",
+        )
+    body = mock_req.call_args.kwargs["json"]
+    assert body["idempotency_key"] == "git:commit:abc"
+
+
+def test_create_episode_omits_idempotency_key_when_not_passed():
+    """Wire shape stays unchanged when the caller doesn't pass a key."""
+    client = StatewaveClient(retry=NO_RETRY)
+    mock_req = MagicMock(return_value=_resp(200, _EPISODE_RESPONSE))
+    with patch.object(client._http, "request", mock_req):
+        client.create_episode(
+            subject_id="subj-1", source="chat", type="conversation", payload={"text": "hi"}
+        )
+    body = mock_req.call_args.kwargs["json"]
+    assert "idempotency_key" not in body
