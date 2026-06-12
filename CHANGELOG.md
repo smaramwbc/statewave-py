@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-06-12)
 
 - `create_episode` (sync + async) accepts an optional `idempotency_key`. Re-ingesting an episode with the same key is a no-op server-side (the server returns the existing episode), so re-running a backfill or retrying a request no longer duplicates episodes. `create_episodes_batch` already forwards the key when present in each episode dict.
 
