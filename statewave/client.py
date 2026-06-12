@@ -193,6 +193,7 @@ class StatewaveClient:
         metadata: dict[str, Any] | None = None,
         provenance: dict[str, Any] | None = None,
         session_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> Episode:
         """Record a raw interaction episode.
 
@@ -200,6 +201,10 @@ class StatewaveClient:
         the server's session-aware ranking uses it to surface active-session
         content in context bundles. Omit it for one-off events; the server
         treats absence as "no session pin" rather than auto-assigning.
+
+        Pass ``idempotency_key`` to make re-ingest a no-op: a later episode with
+        the same key (re-running a backfill, retrying a failed request) returns
+        the existing episode instead of inserting a duplicate.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -211,6 +216,8 @@ class StatewaveClient:
         }
         if session_id is not None:
             body["session_id"] = session_id
+        if idempotency_key is not None:
+            body["idempotency_key"] = idempotency_key
         return self._request("POST", "/v1/episodes", json=body, model=Episode)
 
     def create_episodes_batch(
@@ -758,6 +765,7 @@ class AsyncStatewaveClient:
         metadata: dict[str, Any] | None = None,
         provenance: dict[str, Any] | None = None,
         session_id: str | None = None,
+        idempotency_key: str | None = None,
     ) -> Episode:
         """Record a raw interaction episode.
 
@@ -765,6 +773,10 @@ class AsyncStatewaveClient:
         the server's session-aware ranking uses it to surface active-session
         content in context bundles. Omit it for one-off events; the server
         treats absence as "no session pin" rather than auto-assigning.
+
+        Pass ``idempotency_key`` to make re-ingest a no-op: a later episode with
+        the same key (re-running a backfill, retrying a failed request) returns
+        the existing episode instead of inserting a duplicate.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -776,6 +788,8 @@ class AsyncStatewaveClient:
         }
         if session_id is not None:
             body["session_id"] = session_id
+        if idempotency_key is not None:
+            body["idempotency_key"] = idempotency_key
         return await self._request("POST", "/v1/episodes", json=body, model=Episode)
 
     async def create_episodes_batch(
