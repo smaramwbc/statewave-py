@@ -45,3 +45,9 @@ talk to (a one-file `docker compose up`). See the
 Prefer to wire it up by hand, or use another MCP client? Run the
 [Statewave MCP server](https://github.com/smaramwbc/statewave-docs/blob/main/connectors/mcp.md)
 (`@statewavedev/mcp-server`) directly and query subject `repo:smaramwbc/statewave-py`.
+
+<!-- statewave:begin (managed by `statewave-connectors mcp init`) -->
+**Statewave memory** — MCP server `statewave`, subject `repo:smaramwbc.statewave-py`.
+Before answering questions about this project, call `statewave_get_context` (that subject, `query` = the ask) and ground your answer in it.
+When the user states a durable fact or decision, call `statewave_ingest_episode` then `statewave_compile_subject` (same subject). Never invent Statewave results.
+<!-- statewave:end -->
