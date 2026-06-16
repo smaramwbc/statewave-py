@@ -9,7 +9,6 @@ import httpx
 import pytest
 
 from statewave import AsyncStatewaveClient, StatewaveClient
-from statewave.exceptions import StatewaveTimeoutError
 
 
 def _mock_response(status: int, *, json_body: dict | None = None):
@@ -61,7 +60,6 @@ class TestSyncPerCallTimeout:
         })
 
         with patch.object(client._http, "request", return_value=resp) as mock_req:
-            from statewave.models import ContextBundle
             with patch("statewave.models.ContextBundle.model_validate", return_value=MagicMock()):
                 client.get_context("s1", "task", timeout=3.0)
 
