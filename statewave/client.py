@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import random
 import time
 from dataclasses import dataclass
@@ -194,6 +195,7 @@ class StatewaveClient:
         provenance: dict[str, Any] | None = None,
         session_id: str | None = None,
         idempotency_key: str | None = None,
+        timeout: float | None = None,
     ) -> Episode:
         """Record a raw interaction episode.
 
@@ -205,6 +207,8 @@ class StatewaveClient:
         Pass ``idempotency_key`` to make re-ingest a no-op: a later episode with
         the same key (re-running a backfill, retrying a failed request) returns
         the existing episode instead of inserting a duplicate.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -218,48 +222,82 @@ class StatewaveClient:
             body["session_id"] = session_id
         if idempotency_key is not None:
             body["idempotency_key"] = idempotency_key
-        return self._request("POST", "/v1/episodes", json=body, model=Episode)
+        return self._request("POST", "/v1/episodes", json=body, model=Episode, timeout=timeout)
 
     def create_episodes_batch(
         self,
         episodes: list[dict[str, Any]],
+        *,
+        timeout: float | None = None,
     ) -> BatchCreateResult:
-        """Record multiple episodes in a single request (max 100)."""
+        """Record multiple episodes in a single request (max 100).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return self._request(
             "POST",
             "/v1/episodes/batch",
             json={"episodes": episodes},
             model=BatchCreateResult,
+            timeout=timeout,
         )
 
     # -- Memories ----------------------------------------------------------
 
-    def compile_memories(self, subject_id: str) -> CompileResult:
-        """Compile memories from unprocessed episodes. Idempotent."""
+    def compile_memories(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileResult:
+        """Compile memories from unprocessed episodes. Idempotent.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return self._request(
             "POST",
             "/v1/memories/compile",
             json={"subject_id": subject_id},
             model=CompileResult,
+            timeout=timeout,
         )
 
-    def compile_memories_async(self, subject_id: str) -> CompileJob:
+    def compile_memories_async(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileJob:
         """Submit async compilation. Returns immediately with a job_id for polling.
 
         Use `get_compile_status()` to poll for completion.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
+        kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         resp = self._http.request(
             "POST", "/v1/memories/compile",
             json={"subject_id": subject_id, "async": True},
+            **kwargs,
         )
         if not resp.is_success:
             raise _parse_error(resp)
         return CompileJob.model_validate(resp.json())
 
-    def get_compile_status(self, job_id: str) -> CompileJob:
-        """Poll the status of an async compile job."""
+    def get_compile_status(
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileJob:
+        """Poll the status of an async compile job.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return self._request(
-            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob,
+            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob, timeout=timeout,
         )
 
     def compile_memories_wait(
@@ -268,18 +306,23 @@ class StatewaveClient:
         *,
         poll_interval: float = 0.5,
         timeout: float = 60.0,
+        request_timeout: float | None = None,
     ) -> CompileJob:
         """Submit async compilation and poll until completion or timeout.
 
         Convenience method that combines submit + polling.
         Raises TimeoutError if job doesn't complete within timeout.
+
+        ``timeout`` is the total polling duration in seconds.
+        ``request_timeout`` overrides the client-level HTTP timeout for each
+        individual poll request.
         """
-        job = self.compile_memories_async(subject_id)
+        job = self.compile_memories_async(subject_id, timeout=request_timeout)
         elapsed = 0.0
         while elapsed < timeout:
             time.sleep(poll_interval)
             elapsed += poll_interval
-            job = self.get_compile_status(job.job_id)
+            job = self.get_compile_status(job.job_id, timeout=request_timeout)
             if job.status in ("completed", "failed"):
                 return job
         raise TimeoutError(f"Compile job {job.job_id} did not complete within {timeout}s")
@@ -292,8 +335,12 @@ class StatewaveClient:
         query: str | None = None,
         semantic: bool = False,
         limit: int = 20,
+        timeout: float | None = None,
     ) -> SearchResult:
-        """Search memories by kind, text query, or semantic similarity."""
+        """Search memories by kind, text query, or semantic similarity.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if kind:
             params["kind"] = kind
@@ -301,7 +348,9 @@ class StatewaveClient:
             params["q"] = query
         if semantic:
             params["semantic"] = "true"
-        return self._request("GET", "/v1/memories/search", params=params, model=SearchResult)
+        return self._request(
+            "GET", "/v1/memories/search", params=params, model=SearchResult, timeout=timeout,
+        )
 
     # -- Context -----------------------------------------------------------
 
@@ -318,6 +367,7 @@ class StatewaveClient:
         parent_receipt_id: str | None = None,
         caller_id: str | None = None,
         caller_type: str | None = None,
+        timeout: float | None = None,
     ) -> ContextBundle:
         """Assemble a ranked, token-bounded context bundle.
 
@@ -329,6 +379,8 @@ class StatewaveClient:
         `always`), the returned bundle carries a `receipt_id` that can
         be fetched via `get_receipt()`. See `Receipt` for the body
         schema.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {"subject_id": subject_id, "task": task}
         if max_tokens is not None:
@@ -347,7 +399,9 @@ class StatewaveClient:
             body["caller_id"] = caller_id
         if caller_type is not None:
             body["caller_type"] = caller_type
-        return self._request("POST", "/v1/context", json=body, model=ContextBundle)
+        return self._request(
+            "POST", "/v1/context", json=body, model=ContextBundle, timeout=timeout,
+        )
 
     # -- Memory labels (#50) ----------------------------------------------
 
@@ -355,6 +409,8 @@ class StatewaveClient:
         self,
         memory_id: str,
         labels: list[str],
+        *,
+        timeout: float | None = None,
     ) -> Memory:
         """Replace a memory's sensitivity_labels with the supplied list.
 
@@ -363,12 +419,15 @@ class StatewaveClient:
         write boundary is the only place to do it safely. An empty
         list clears all labels (memory becomes untagged → policy
         default-allow).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         return self._request(
             "PATCH",
             f"/v1/memories/{memory_id}/labels",
             json={"sensitivity_labels": labels},
             model=Memory,
+            timeout=timeout,
         )
 
     def list_suggested_labels(
@@ -379,6 +438,7 @@ class StatewaveClient:
         label: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        timeout: float | None = None,
     ) -> SuggestedLabelsList:
         """List memories carrying auto-derived suggested labels — the review
         surface for the promote workflow (admin/governance, v0.9 #158).
@@ -386,6 +446,8 @@ class StatewaveClient:
         Requires auto-labeling enabled server-side
         (``STATEWAVE_AUTO_LABELING_ENABLED=true``). Pair with
         :meth:`promote_suggested_labels` to commit a reviewed suggestion.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if tenant_id is not None:
@@ -399,6 +461,7 @@ class StatewaveClient:
             "/admin/memories/with-suggested-labels",
             params=params,
             model=SuggestedLabelsList,
+            timeout=timeout,
         )
 
     def promote_suggested_labels(
@@ -407,6 +470,7 @@ class StatewaveClient:
         labels: list[str],
         *,
         tenant_id: str | None = None,
+        timeout: float | None = None,
     ) -> PromoteLabelsResult:
         """Promote a subset of a memory's suggested labels into authoritative
         ``sensitivity_labels`` (admin/governance, v0.9 #160).
@@ -414,6 +478,8 @@ class StatewaveClient:
         Review-only: every label in ``labels`` must already be a current
         suggestion on the memory, else the server returns 422. Promoted labels
         are removed from the suggestions so they don't re-surface in review.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {}
         if tenant_id is not None:
@@ -424,6 +490,7 @@ class StatewaveClient:
             json={"labels": labels},
             params=params,
             model=PromoteLabelsResult,
+            timeout=timeout,
         )
 
     def get_context_string(
@@ -432,16 +499,30 @@ class StatewaveClient:
         task: str,
         *,
         max_tokens: int | None = None,
+        timeout: float | None = None,
     ) -> str:
-        """Return just the assembled context string, ready to inject into a prompt."""
-        bundle = self.get_context(subject_id, task, max_tokens=max_tokens)
+        """Return just the assembled context string, ready to inject into a prompt.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        bundle = self.get_context(subject_id, task, max_tokens=max_tokens, timeout=timeout)
         return bundle.assembled_context
 
     # -- Receipts ----------------------------------------------------------
 
-    def get_receipt(self, receipt_id: str) -> Receipt:
-        """Fetch a single state-assembly receipt by ULID."""
-        return self._request("GET", f"/v1/receipts/{receipt_id}", model=Receipt)
+    def get_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Receipt:
+        """Fetch a single state-assembly receipt by ULID.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        return self._request(
+            "GET", f"/v1/receipts/{receipt_id}", model=Receipt, timeout=timeout,
+        )
 
     def list_receipts(
         self,
@@ -451,9 +532,13 @@ class StatewaveClient:
         until: str | None = None,
         cursor: str | None = None,
         limit: int = 50,
+        timeout: float | None = None,
     ) -> ReceiptList:
         """List receipts for a subject, newest first. Cursor-paginated —
-        pass the previous response's `next_cursor` to fetch the next page."""
+        pass the previous response's `next_cursor` to fetch the next page.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if since is not None:
             params["since"] = since
@@ -461,9 +546,16 @@ class StatewaveClient:
             params["until"] = until
         if cursor is not None:
             params["cursor"] = cursor
-        return self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
+        return self._request(
+            "GET", "/v1/receipts", params=params, model=ReceiptList, timeout=timeout,
+        )
 
-    def verify_receipt(self, receipt_id: str) -> ReceiptVerifyResult:
+    def verify_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> ReceiptVerifyResult:
         """Verify the HMAC signature on a stored receipt (v0.9+ #157).
 
         Calls ``GET /v1/receipts/{receipt_id}/verify``. Returns a
@@ -486,14 +578,22 @@ class StatewaveClient:
         Raises :class:`StatewaveAPIError` on 404 (receipt not found
         or belongs to a different tenant — indistinguishable on the
         wire) and other non-2xx responses.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         return self._request(
             "GET",
             f"/v1/receipts/{receipt_id}/verify",
             model=ReceiptVerifyResult,
+            timeout=timeout,
         )
 
-    def replay_receipt(self, receipt_id: str) -> ReceiptReplayResult:
+    def replay_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> ReceiptReplayResult:
         """Re-run the original retrieval against current memories using
         the original policy bundle captured in the receipt's
         ``policy_snapshot`` (v0.9+ #159).
@@ -522,23 +622,33 @@ class StatewaveClient:
 
         Raises :class:`StatewaveAPIError` on 404 and other non-2xx
         responses.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         return self._request(
             "POST",
             f"/v1/receipts/{receipt_id}/replay",
             model=ReceiptReplayResult,
+            timeout=timeout,
         )
 
     # -- Support: health, SLA, handoff, resolutions ------------------------
 
-    def get_health(self, subject_id: str) -> Health:
+    def get_health(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Health:
         """Compute the customer health score (0-100) for a subject.
 
         Returns the score, the state bucket (``healthy`` | ``watch`` |
         ``at_risk``), and the explainable factors that drove it.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         return self._request(
-            "GET", f"/v1/subjects/{subject_id}/health", model=Health,
+            "GET", f"/v1/subjects/{subject_id}/health", model=Health, timeout=timeout,
         )
 
     def get_sla(
@@ -547,6 +657,7 @@ class StatewaveClient:
         *,
         first_response_threshold_minutes: float | None = None,
         resolution_threshold_hours: float | None = None,
+        timeout: float | None = None,
     ) -> SLASummary:
         """Compute SLA metrics for a subject.
 
@@ -554,6 +665,8 @@ class StatewaveClient:
         subject's sessions and flags breaches against the supplied
         thresholds. Both thresholds fall back to the server defaults
         (5 minutes / 24 hours) when omitted.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {}
         if first_response_threshold_minutes is not None:
@@ -562,6 +675,7 @@ class StatewaveClient:
             params["resolution_threshold_hours"] = resolution_threshold_hours
         return self._request(
             "GET", f"/v1/subjects/{subject_id}/sla", params=params, model=SLASummary,
+            timeout=timeout,
         )
 
     def create_handoff(
@@ -577,6 +691,7 @@ class StatewaveClient:
         parent_receipt_id: str | None = None,
         caller_id: str | None = None,
         caller_type: str | None = None,
+        timeout: float | None = None,
     ) -> Handoff:
         """Generate a handoff context pack for escalation or shift change.
 
@@ -586,6 +701,8 @@ class StatewaveClient:
         ``caller_id`` and ``caller_type`` are consumed by the
         sensitivity-label policy layer (#50); when the tenant config
         sets ``require_caller_identity: true``, both are mandatory.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {"subject_id": subject_id, "session_id": session_id}
         if reason is not None:
@@ -604,7 +721,9 @@ class StatewaveClient:
             body["caller_id"] = caller_id
         if caller_type is not None:
             body["caller_type"] = caller_type
-        return self._request("POST", "/v1/handoff", json=body, model=Handoff)
+        return self._request(
+            "POST", "/v1/handoff", json=body, model=Handoff, timeout=timeout,
+        )
 
     def create_resolution(
         self,
@@ -614,11 +733,14 @@ class StatewaveClient:
         status: str = "open",
         resolution_summary: str | None = None,
         metadata: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> Resolution:
         """Create or update a resolution record for a support session.
 
         Upserts by ``subject_id`` + ``session_id``. ``status`` is one of
         ``open``, ``resolved``, or ``unresolved``.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -629,46 +751,81 @@ class StatewaveClient:
             body["resolution_summary"] = resolution_summary
         if metadata is not None:
             body["metadata"] = metadata
-        return self._request("POST", "/v1/resolutions", json=body, model=Resolution)
+        return self._request(
+            "POST", "/v1/resolutions", json=body, model=Resolution, timeout=timeout,
+        )
 
     def list_resolutions(
         self,
         subject_id: str,
         *,
         status: str | None = None,
+        timeout: float | None = None,
     ) -> list[Resolution]:
         """List resolution records for a subject.
 
         Optionally filter to a single ``status`` (``open`` | ``resolved``
         | ``unresolved``).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {"subject_id": subject_id}
         if status is not None:
             params["status"] = status
         return self._request(
             "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
+            timeout=timeout,
         )
 
     # -- Timeline ----------------------------------------------------------
 
-    def get_timeline(self, subject_id: str) -> Timeline:
-        """Get chronological subject timeline."""
+    def get_timeline(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Timeline:
+        """Get chronological subject timeline.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return self._request(
-            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline
+            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline,
+            timeout=timeout,
         )
 
     # -- Subjects ----------------------------------------------------------
 
-    def delete_subject(self, subject_id: str) -> DeleteResult:
-        """Permanently delete all data for a subject."""
-        return self._request("DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult)
+    def delete_subject(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> DeleteResult:
+        """Permanently delete all data for a subject.
 
-    def list_subjects(self, *, limit: int = 50, offset: int = 0) -> ListSubjectsResult:
-        """List all known subjects with episode/memory counts."""
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        return self._request(
+            "DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult, timeout=timeout,
+        )
+
+    def list_subjects(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        timeout: float | None = None,
+    ) -> ListSubjectsResult:
+        """List all known subjects with episode/memory counts.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return self._request(
             "GET", "/v1/subjects",
             params={"limit": limit, "offset": offset},
             model=ListSubjectsResult,
+            timeout=timeout,
         )
 
     # -- Lifecycle ---------------------------------------------------------
@@ -693,11 +850,17 @@ class StatewaveClient:
         json: Any = None,
         params: Any = None,
         is_list: bool = False,
+        timeout: float | None = None,
     ):
         last_exc: Exception | None = None
+        extra: dict[str, Any] = {}
+        if timeout is not None:
+            extra["timeout"] = timeout
         for attempt in range(self._retry.max_retries + 1):
             try:
-                resp = self._http.request(method, path, json=json, params=params)
+                resp = self._http.request(method, path, json=json, params=params, **extra)
+            except (KeyboardInterrupt, SystemExit):
+                raise
             except httpx.HTTPStatusError:
                 raise
             except Exception as exc:
@@ -766,6 +929,7 @@ class AsyncStatewaveClient:
         provenance: dict[str, Any] | None = None,
         session_id: str | None = None,
         idempotency_key: str | None = None,
+        timeout: float | None = None,
     ) -> Episode:
         """Record a raw interaction episode.
 
@@ -777,6 +941,8 @@ class AsyncStatewaveClient:
         Pass ``idempotency_key`` to make re-ingest a no-op: a later episode with
         the same key (re-running a backfill, retrying a failed request) returns
         the existing episode instead of inserting a duplicate.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -790,45 +956,82 @@ class AsyncStatewaveClient:
             body["session_id"] = session_id
         if idempotency_key is not None:
             body["idempotency_key"] = idempotency_key
-        return await self._request("POST", "/v1/episodes", json=body, model=Episode)
+        return await self._request(
+            "POST", "/v1/episodes", json=body, model=Episode, timeout=timeout,
+        )
 
     async def create_episodes_batch(
         self,
         episodes: list[dict[str, Any]],
+        *,
+        timeout: float | None = None,
     ) -> BatchCreateResult:
-        """Record multiple episodes in a single request (max 100)."""
+        """Record multiple episodes in a single request (max 100).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "POST",
             "/v1/episodes/batch",
             json={"episodes": episodes},
             model=BatchCreateResult,
+            timeout=timeout,
         )
 
     # -- Memories ----------------------------------------------------------
 
-    async def compile_memories(self, subject_id: str) -> CompileResult:
-        """Compile memories from unprocessed episodes. Idempotent."""
+    async def compile_memories(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileResult:
+        """Compile memories from unprocessed episodes. Idempotent.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "POST",
             "/v1/memories/compile",
             json={"subject_id": subject_id},
             model=CompileResult,
+            timeout=timeout,
         )
 
-    async def compile_memories_async(self, subject_id: str) -> CompileJob:
-        """Submit async compilation. Returns immediately with a job_id for polling."""
+    async def compile_memories_async(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileJob:
+        """Submit async compilation. Returns immediately with a job_id for polling.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        kwargs: dict[str, Any] = {}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
         resp = await self._http.request(
             "POST", "/v1/memories/compile",
             json={"subject_id": subject_id, "async": True},
+            **kwargs,
         )
         if not resp.is_success:
             raise _parse_error(resp)
         return CompileJob.model_validate(resp.json())
 
-    async def get_compile_status(self, job_id: str) -> CompileJob:
-        """Poll the status of an async compile job."""
+    async def get_compile_status(
+        self,
+        job_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> CompileJob:
+        """Poll the status of an async compile job.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
-            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob,
+            "GET", f"/v1/memories/compile/{job_id}", model=CompileJob, timeout=timeout,
         )
 
     async def compile_memories_wait(
@@ -837,16 +1040,20 @@ class AsyncStatewaveClient:
         *,
         poll_interval: float = 0.5,
         timeout: float = 60.0,
+        request_timeout: float | None = None,
     ) -> CompileJob:
-        """Submit async compilation and poll until completion or timeout."""
-        import asyncio as _asyncio
+        """Submit async compilation and poll until completion or timeout.
 
-        job = await self.compile_memories_async(subject_id)
+        ``timeout`` is the total polling duration in seconds.
+        ``request_timeout`` overrides the client-level HTTP timeout for each
+        individual poll request.
+        """
+        job = await self.compile_memories_async(subject_id, timeout=request_timeout)
         elapsed = 0.0
         while elapsed < timeout:
-            await _asyncio.sleep(poll_interval)
+            await asyncio.sleep(poll_interval)
             elapsed += poll_interval
-            job = await self.get_compile_status(job.job_id)
+            job = await self.get_compile_status(job.job_id, timeout=request_timeout)
             if job.status in ("completed", "failed"):
                 return job
         raise TimeoutError(f"Compile job {job.job_id} did not complete within {timeout}s")
@@ -859,8 +1066,12 @@ class AsyncStatewaveClient:
         query: str | None = None,
         semantic: bool = False,
         limit: int = 20,
+        timeout: float | None = None,
     ) -> SearchResult:
-        """Search memories by kind, text query, or semantic similarity."""
+        """Search memories by kind, text query, or semantic similarity.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if kind:
             params["kind"] = kind
@@ -868,7 +1079,9 @@ class AsyncStatewaveClient:
             params["q"] = query
         if semantic:
             params["semantic"] = "true"
-        return await self._request("GET", "/v1/memories/search", params=params, model=SearchResult)
+        return await self._request(
+            "GET", "/v1/memories/search", params=params, model=SearchResult, timeout=timeout,
+        )
 
     # -- Context -----------------------------------------------------------
 
@@ -885,6 +1098,7 @@ class AsyncStatewaveClient:
         parent_receipt_id: str | None = None,
         caller_id: str | None = None,
         caller_type: str | None = None,
+        timeout: float | None = None,
     ) -> ContextBundle:
         """Assemble a ranked, token-bounded context bundle.
 
@@ -895,6 +1109,8 @@ class AsyncStatewaveClient:
         When `emit_receipt=True` (or the tenant's receipts config is
         `always`), the returned bundle carries a `receipt_id` that can
         be fetched via `get_receipt()`.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {"subject_id": subject_id, "task": task}
         if max_tokens is not None:
@@ -913,19 +1129,27 @@ class AsyncStatewaveClient:
             body["caller_id"] = caller_id
         if caller_type is not None:
             body["caller_type"] = caller_type
-        return await self._request("POST", "/v1/context", json=body, model=ContextBundle)
+        return await self._request(
+            "POST", "/v1/context", json=body, model=ContextBundle, timeout=timeout,
+        )
 
     async def set_memory_labels(
         self,
         memory_id: str,
         labels: list[str],
+        *,
+        timeout: float | None = None,
     ) -> Memory:
-        """Replace a memory's sensitivity_labels (#50)."""
+        """Replace a memory's sensitivity_labels (#50).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "PATCH",
             f"/v1/memories/{memory_id}/labels",
             json={"sensitivity_labels": labels},
             model=Memory,
+            timeout=timeout,
         )
 
     async def list_suggested_labels(
@@ -936,8 +1160,12 @@ class AsyncStatewaveClient:
         label: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        timeout: float | None = None,
     ) -> SuggestedLabelsList:
-        """List memories carrying auto-derived suggested labels (admin/governance, v0.9 #158)."""
+        """List memories carrying auto-derived suggested labels (admin/governance, v0.9 #158).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {"limit": limit, "offset": offset}
         if tenant_id is not None:
             params["tenant_id"] = tenant_id
@@ -950,6 +1178,7 @@ class AsyncStatewaveClient:
             "/admin/memories/with-suggested-labels",
             params=params,
             model=SuggestedLabelsList,
+            timeout=timeout,
         )
 
     async def promote_suggested_labels(
@@ -958,10 +1187,14 @@ class AsyncStatewaveClient:
         labels: list[str],
         *,
         tenant_id: str | None = None,
+        timeout: float | None = None,
     ) -> PromoteLabelsResult:
         """Promote a subset of a memory's suggested labels into authoritative
         ``sensitivity_labels`` (admin/governance, v0.9 #160). Review-only —
-        every label must already be a current suggestion (else 422)."""
+        every label must already be a current suggestion (else 422).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {}
         if tenant_id is not None:
             params["tenant_id"] = tenant_id
@@ -971,6 +1204,7 @@ class AsyncStatewaveClient:
             json={"labels": labels},
             params=params,
             model=PromoteLabelsResult,
+            timeout=timeout,
         )
 
     async def get_context_string(
@@ -979,17 +1213,29 @@ class AsyncStatewaveClient:
         task: str,
         *,
         max_tokens: int | None = None,
+        timeout: float | None = None,
     ) -> str:
-        """Return just the assembled context string, ready to inject into a prompt."""
-        bundle = await self.get_context(subject_id, task, max_tokens=max_tokens)
+        """Return just the assembled context string, ready to inject into a prompt.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        bundle = await self.get_context(subject_id, task, max_tokens=max_tokens, timeout=timeout)
         return bundle.assembled_context
 
     # -- Receipts ----------------------------------------------------------
 
-    async def get_receipt(self, receipt_id: str) -> Receipt:
-        """Fetch a single state-assembly receipt by ULID."""
+    async def get_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Receipt:
+        """Fetch a single state-assembly receipt by ULID.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
-            "GET", f"/v1/receipts/{receipt_id}", model=Receipt
+            "GET", f"/v1/receipts/{receipt_id}", model=Receipt, timeout=timeout,
         )
 
     async def list_receipts(
@@ -1000,8 +1246,12 @@ class AsyncStatewaveClient:
         until: str | None = None,
         cursor: str | None = None,
         limit: int = 50,
+        timeout: float | None = None,
     ) -> ReceiptList:
-        """List receipts for a subject, newest first. Cursor-paginated."""
+        """List receipts for a subject, newest first. Cursor-paginated.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         params: dict[str, Any] = {"subject_id": subject_id, "limit": limit}
         if since is not None:
             params["since"] = since
@@ -1009,38 +1259,65 @@ class AsyncStatewaveClient:
             params["until"] = until
         if cursor is not None:
             params["cursor"] = cursor
-        return await self._request("GET", "/v1/receipts", params=params, model=ReceiptList)
+        return await self._request(
+            "GET", "/v1/receipts", params=params, model=ReceiptList, timeout=timeout,
+        )
 
-    async def verify_receipt(self, receipt_id: str) -> ReceiptVerifyResult:
+    async def verify_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> ReceiptVerifyResult:
         """Async — verify the HMAC signature on a stored receipt (v0.9+ #157).
-        See :meth:`StatewaveClient.verify_receipt` for the full contract."""
+        See :meth:`StatewaveClient.verify_receipt` for the full contract.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "GET",
             f"/v1/receipts/{receipt_id}/verify",
             model=ReceiptVerifyResult,
+            timeout=timeout,
         )
 
-    async def replay_receipt(self, receipt_id: str) -> ReceiptReplayResult:
+    async def replay_receipt(
+        self,
+        receipt_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> ReceiptReplayResult:
         """Async — replay a receipt against current memories with the
         receipt's original policy bundle (v0.9+ #159). See
         :meth:`StatewaveClient.replay_receipt` for the full contract,
-        including the :class:`StatewaveUnreplayableError` cases."""
+        including the :class:`StatewaveUnreplayableError` cases.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "POST",
             f"/v1/receipts/{receipt_id}/replay",
             model=ReceiptReplayResult,
+            timeout=timeout,
         )
 
     # -- Support: health, SLA, handoff, resolutions ------------------------
 
-    async def get_health(self, subject_id: str) -> Health:
+    async def get_health(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Health:
         """Compute the customer health score (0-100) for a subject.
 
         Returns the score, the state bucket (``healthy`` | ``watch`` |
         ``at_risk``), and the explainable factors that drove it.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         return await self._request(
-            "GET", f"/v1/subjects/{subject_id}/health", model=Health,
+            "GET", f"/v1/subjects/{subject_id}/health", model=Health, timeout=timeout,
         )
 
     async def get_sla(
@@ -1049,6 +1326,7 @@ class AsyncStatewaveClient:
         *,
         first_response_threshold_minutes: float | None = None,
         resolution_threshold_hours: float | None = None,
+        timeout: float | None = None,
     ) -> SLASummary:
         """Compute SLA metrics for a subject.
 
@@ -1056,6 +1334,8 @@ class AsyncStatewaveClient:
         subject's sessions and flags breaches against the supplied
         thresholds. Both thresholds fall back to the server defaults
         (5 minutes / 24 hours) when omitted.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {}
         if first_response_threshold_minutes is not None:
@@ -1064,6 +1344,7 @@ class AsyncStatewaveClient:
             params["resolution_threshold_hours"] = resolution_threshold_hours
         return await self._request(
             "GET", f"/v1/subjects/{subject_id}/sla", params=params, model=SLASummary,
+            timeout=timeout,
         )
 
     async def create_handoff(
@@ -1079,6 +1360,7 @@ class AsyncStatewaveClient:
         parent_receipt_id: str | None = None,
         caller_id: str | None = None,
         caller_type: str | None = None,
+        timeout: float | None = None,
     ) -> Handoff:
         """Generate a handoff context pack for escalation or shift change.
 
@@ -1088,6 +1370,8 @@ class AsyncStatewaveClient:
         ``caller_id`` and ``caller_type`` are consumed by the
         sensitivity-label policy layer (#50); when the tenant config
         sets ``require_caller_identity: true``, both are mandatory.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {"subject_id": subject_id, "session_id": session_id}
         if reason is not None:
@@ -1106,7 +1390,9 @@ class AsyncStatewaveClient:
             body["caller_id"] = caller_id
         if caller_type is not None:
             body["caller_type"] = caller_type
-        return await self._request("POST", "/v1/handoff", json=body, model=Handoff)
+        return await self._request(
+            "POST", "/v1/handoff", json=body, model=Handoff, timeout=timeout,
+        )
 
     async def create_resolution(
         self,
@@ -1116,11 +1402,14 @@ class AsyncStatewaveClient:
         status: str = "open",
         resolution_summary: str | None = None,
         metadata: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> Resolution:
         """Create or update a resolution record for a support session.
 
         Upserts by ``subject_id`` + ``session_id``. ``status`` is one of
         ``open``, ``resolved``, or ``unresolved``.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         body: dict[str, Any] = {
             "subject_id": subject_id,
@@ -1131,46 +1420,81 @@ class AsyncStatewaveClient:
             body["resolution_summary"] = resolution_summary
         if metadata is not None:
             body["metadata"] = metadata
-        return await self._request("POST", "/v1/resolutions", json=body, model=Resolution)
+        return await self._request(
+            "POST", "/v1/resolutions", json=body, model=Resolution, timeout=timeout,
+        )
 
     async def list_resolutions(
         self,
         subject_id: str,
         *,
         status: str | None = None,
+        timeout: float | None = None,
     ) -> list[Resolution]:
         """List resolution records for a subject.
 
         Optionally filter to a single ``status`` (``open`` | ``resolved``
         | ``unresolved``).
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {"subject_id": subject_id}
         if status is not None:
             params["status"] = status
         return await self._request(
             "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
+            timeout=timeout,
         )
 
     # -- Timeline ----------------------------------------------------------
 
-    async def get_timeline(self, subject_id: str) -> Timeline:
-        """Get chronological subject timeline."""
+    async def get_timeline(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> Timeline:
+        """Get chronological subject timeline.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
-            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline
+            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline,
+            timeout=timeout,
         )
 
     # -- Subjects ----------------------------------------------------------
 
-    async def delete_subject(self, subject_id: str) -> DeleteResult:
-        """Permanently delete all data for a subject."""
-        return await self._request("DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult)
+    async def delete_subject(
+        self,
+        subject_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> DeleteResult:
+        """Permanently delete all data for a subject.
 
-    async def list_subjects(self, *, limit: int = 50, offset: int = 0) -> ListSubjectsResult:
-        """List all known subjects with episode/memory counts."""
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
+        return await self._request(
+            "DELETE", f"/v1/subjects/{subject_id}", model=DeleteResult, timeout=timeout,
+        )
+
+    async def list_subjects(
+        self,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+        timeout: float | None = None,
+    ) -> ListSubjectsResult:
+        """List all known subjects with episode/memory counts.
+
+        Pass ``timeout`` to override the client-level timeout for this call only.
+        """
         return await self._request(
             "GET", "/v1/subjects",
             params={"limit": limit, "offset": offset},
             model=ListSubjectsResult,
+            timeout=timeout,
         )
 
     # -- Lifecycle ---------------------------------------------------------
@@ -1195,13 +1519,17 @@ class AsyncStatewaveClient:
         json: Any = None,
         params: Any = None,
         is_list: bool = False,
+        timeout: float | None = None,
     ):
-        import asyncio
-
         last_exc: Exception | None = None
+        extra: dict[str, Any] = {}
+        if timeout is not None:
+            extra["timeout"] = timeout
         for attempt in range(self._retry.max_retries + 1):
             try:
-                resp = await self._http.request(method, path, json=json, params=params)
+                resp = await self._http.request(method, path, json=json, params=params, **extra)
+            except asyncio.CancelledError:
+                raise
             except Exception as exc:
                 if attempt < self._retry.max_retries:
                     last_exc = exc
