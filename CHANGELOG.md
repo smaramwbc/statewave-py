@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.0 (2026-07-14)
+
+Parity release with `statewave` server v1.4.0 — no SDK behavior changes since v1.2.0.
+
+- **`__version__` corrected** — `statewave.__version__` now matches the packaged `pyproject.toml` version. It had been frozen at `1.0.0` since the v1.0 line was cut; this release closes the drift.
+- CI: `actions/checkout` bumped to v7.
+- Docs: `SECURITY.md` reference updated from the retired `statewave-bench` repo to `statewave-memory-benchmarks`.
+
+The v1.2.0 features (per-call `timeout=` override, `CancelledError` propagation on abort) remain the current SDK surface.
+
+## 1.2.0 (2026-06-17 — CHANGELOG backfill)
+
+The 1.2.0 release notes were never written; recording them here for completeness.
+
+- **Per-call timeout override** — every read/write method accepts an optional `timeout=` kwarg (sync + async) that overrides the client's default for that one call.
+- **`CancelledError` propagation** — an `asyncio.CancelledError` raised during a request now propagates immediately instead of being caught and retried as a transient failure. Aborting an in-flight call is honored.
+- Internal refactor for maintainability; unused imports cleaned up.
+
 ## 1.1.0 (2026-06-12)
 
 - `create_episode` (sync + async) accepts an optional `idempotency_key`. Re-ingesting an episode with the same key is a no-op server-side (the server returns the existing episode), so re-running a backfill or retrying a request no longer duplicates episodes. `create_episodes_batch` already forwards the key when present in each episode dict.
