@@ -6,7 +6,9 @@
 
 Statewave Python SDK — memory runtime for AI agents and applications. The TypeScript SDK lives at [`@statewavedev/sdk`](https://github.com/smaramwbc/statewave-ts).
 
-> **Part of the Statewave ecosystem:** [Server](https://github.com/smaramwbc/statewave) · **Python SDK** · [TypeScript SDK](https://github.com/smaramwbc/statewave-ts) · [Connectors](https://github.com/smaramwbc/statewave-connectors) · [Docs](https://github.com/smaramwbc/statewave-docs) · [Examples](https://github.com/smaramwbc/statewave-examples) · [Website + demo](https://statewave.ai) · [Admin](https://github.com/smaramwbc/statewave-admin)
+> **Part of [Statewave](https://github.com/smaramwbc/statewave)** — the open-source memory runtime for AI agents.
+>
+> 📦 [Core runtime](https://github.com/smaramwbc/statewave) · 🐍 **Python SDK** · 🟦 [TypeScript SDK](https://github.com/smaramwbc/statewave-ts) · 🔌 [Connectors](https://github.com/smaramwbc/statewave-connectors) · 📘 [Docs](https://github.com/smaramwbc/statewave-docs) · 💡 [Examples](https://github.com/smaramwbc/statewave-examples) · 🖥️ [Admin](https://github.com/smaramwbc/statewave-admin) · 🌐 [statewave.ai](https://statewave.ai)
 >
 > 📋 **Issues & feature requests:** [statewave/issues](https://github.com/smaramwbc/statewave/issues) (centralized tracker)
 
