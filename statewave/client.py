@@ -760,18 +760,25 @@ class StatewaveClient:
         subject_id: str,
         *,
         status: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         timeout: float | None = None,
     ) -> list[Resolution]:
-        """List resolution records for a subject.
+        """List resolution records for a subject, most recently updated first.
 
         Optionally filter to a single ``status`` (``open`` | ``resolved``
-        | ``unresolved``).
+        | ``unresolved``). ``limit`` (1-200) and ``offset`` page the list; the
+        server's defaults apply when omitted.
 
         Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {"subject_id": subject_id}
         if status is not None:
             params["status"] = status
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
         return self._request(
             "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
             timeout=timeout,
@@ -783,14 +790,31 @@ class StatewaveClient:
         self,
         subject_id: str,
         *,
+        limit: int | None = None,
+        offset: int | None = None,
+        newest_first: bool | None = None,
         timeout: float | None = None,
     ) -> Timeline:
         """Get chronological subject timeline.
 
+        ``limit`` (1-200) and ``offset`` page each collection; the server's
+        defaults apply when omitted. With ``newest_first=True`` the window is
+        taken from the most recent end and ``offset`` counts back from the
+        newest row. Rows within a page are always in ascending chronological
+        order. ``Timeline.episodes_has_more`` / ``memories_has_more`` report
+        whether more rows exist beyond the page (``None`` from older servers).
+
         Pass ``timeout`` to override the client-level timeout for this call only.
         """
+        params: dict[str, Any] = {"subject_id": subject_id}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        if newest_first is not None:
+            params["newest_first"] = "true" if newest_first else "false"
         return self._request(
-            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline,
+            "GET", "/v1/timeline", params=params, model=Timeline,
             timeout=timeout,
         )
 
@@ -1429,18 +1453,25 @@ class AsyncStatewaveClient:
         subject_id: str,
         *,
         status: str | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
         timeout: float | None = None,
     ) -> list[Resolution]:
-        """List resolution records for a subject.
+        """List resolution records for a subject, most recently updated first.
 
         Optionally filter to a single ``status`` (``open`` | ``resolved``
-        | ``unresolved``).
+        | ``unresolved``). ``limit`` (1-200) and ``offset`` page the list; the
+        server's defaults apply when omitted.
 
         Pass ``timeout`` to override the client-level timeout for this call only.
         """
         params: dict[str, Any] = {"subject_id": subject_id}
         if status is not None:
             params["status"] = status
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
         return await self._request(
             "GET", "/v1/resolutions", params=params, model=Resolution, is_list=True,
             timeout=timeout,
@@ -1452,14 +1483,31 @@ class AsyncStatewaveClient:
         self,
         subject_id: str,
         *,
+        limit: int | None = None,
+        offset: int | None = None,
+        newest_first: bool | None = None,
         timeout: float | None = None,
     ) -> Timeline:
         """Get chronological subject timeline.
 
+        ``limit`` (1-200) and ``offset`` page each collection; the server's
+        defaults apply when omitted. With ``newest_first=True`` the window is
+        taken from the most recent end and ``offset`` counts back from the
+        newest row. Rows within a page are always in ascending chronological
+        order. ``Timeline.episodes_has_more`` / ``memories_has_more`` report
+        whether more rows exist beyond the page (``None`` from older servers).
+
         Pass ``timeout`` to override the client-level timeout for this call only.
         """
+        params: dict[str, Any] = {"subject_id": subject_id}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        if newest_first is not None:
+            params["newest_first"] = "true" if newest_first else "false"
         return await self._request(
-            "GET", "/v1/timeline", params={"subject_id": subject_id}, model=Timeline,
+            "GET", "/v1/timeline", params=params, model=Timeline,
             timeout=timeout,
         )
 
