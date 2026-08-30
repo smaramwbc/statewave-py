@@ -80,9 +80,14 @@ with StatewaveClient(
     for s in subjects.subjects:
         print(f"  {s.subject_id}: {s.episode_count} episodes, {s.memory_count} memories")
 
-    # Get timeline
+    # Get timeline — the server's default page is the OLDEST records
     timeline = sw.get_timeline("user-42")
     print(f"{len(timeline.episodes)} episodes, {len(timeline.memories)} memories")
+
+    # A bounded window of RECENT history (ascending within the page)
+    recent = sw.get_timeline("user-42", limit=20, newest_first=True)
+    if recent.episodes_has_more:
+        print("older episodes exist beyond this page")
 
     # Delete all subject data
     sw.delete_subject("user-42")

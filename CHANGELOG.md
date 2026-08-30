@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased
+
+### Added — `get_timeline` can page, and can page from the recent end
+
+`get_timeline` sent `subject_id` and nothing else, so a caller took whatever
+page the server chose. `/v1/timeline` orders ascending and caps each
+collection, so on a subject past that cap those are the **oldest** records —
+the opposite of what a consumer keeping a "recent activity" window wants, and
+it gets worse the longer the subject lives. There was no parameter to change
+it, on either client.
+
+- `get_timeline` accepts `limit`, `offset` and `newest_first` (sync + async).
+  All three are keyword-only and default to `None`, and a parameter is sent
+  only when the caller supplies one — a bare `get_timeline(subject_id)` puts
+  exactly the same request on the wire as before.
+- `Timeline` gains `episodes_has_more` / `memories_has_more`, typed
+  `bool | None`. `None` means the server did not report it, which is not the
+  same as `False`: do not read a missing flag as "this page is complete".
+  This part is load-bearing rather than cosmetic — the models set no
+  `model_config`, so pydantic's `extra="ignore"` was silently discarding both
+  fields on parse, and a caller had no way to reach them at all.
+- `Episode` gains `occurred_at` (`datetime | None`), the event's own time as
+  opposed to `created_at`, its ingest time. The server has always sent it and
+  the model has always dropped it, by the same `extra="ignore"` mechanism. It
+  belongs with this change because it is the column the timeline orders by:
+  asking for the most recent episodes and then being unable to see what made
+  them recent is half an answer.
+
+Requires a server that accepts these parameters —
+[statewave#362](https://github.com/smaramwbc/statewave/pull/362) for
+`limit`/`offset` and the has-more flags, and
+[statewave#363](https://github.com/smaramwbc/statewave/pull/363) for
+`newest_first`. An older instance ignores unknown query parameters and returns
+its default page, which is why the has-more flags are typed optional rather
+than assumed. The matching TypeScript change is
+[statewave-ts#31](https://github.com/smaramwbc/statewave-ts/pull/31).
+
+Backward compatible: every parameter after `subject_id` was already
+keyword-only, so there is no positional slot to capture and no existing call
+changes shape.
+
 ## 1.4.0 (2026-07-14)
 
 Parity release with `statewave` server v1.4.0 — no SDK behavior changes since v1.2.0.
