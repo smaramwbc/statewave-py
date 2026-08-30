@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0 (2026-08-30)
 
 ### Added — `get_timeline` can page, and can page from the recent end
 
@@ -27,6 +27,8 @@ it, on either client.
   belongs with this change because it is the column the timeline orders by:
   asking for the most recent episodes and then being unable to see what made
   them recent is half an answer.
+- `list_resolutions` accepts `limit` and `offset` (sync + async), mirroring
+  `GET /v1/resolutions` pagination; both are sent only when supplied.
 
 Requires a server that accepts these parameters —
 [statewave#362](https://github.com/smaramwbc/statewave/pull/362) for
