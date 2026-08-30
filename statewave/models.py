@@ -184,6 +184,10 @@ class Timeline(BaseModel):
     subject_id: str
     episodes: list[Episode]
     memories: list[Memory]
+    # Present on servers that page the timeline; ``None`` from older servers,
+    # which is not the same as ``False`` — don't read a missing flag as "complete".
+    episodes_has_more: bool | None = None
+    memories_has_more: bool | None = None
 
 
 class DeleteResult(BaseModel):
