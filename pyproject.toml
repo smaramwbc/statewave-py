@@ -50,5 +50,13 @@ packages = ["statewave"]
 target-version = "py311"
 line-length = 100
 
+[tool.ruff.lint]
+# Pin the rule set explicitly instead of inheriting ruff's defaults, which
+# change between releases (0.16 widened the default selection from 59 rules
+# to 413 and turned main red on I001/RUF022). These four prefixes are exactly
+# what ruff enforced by default through 0.15, so the lint contract is
+# unchanged. Same fix as smaramwbc/statewave#322.
+select = ["E4", "E7", "E9", "F"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
