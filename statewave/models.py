@@ -17,6 +17,14 @@ class Episode(BaseModel):
     payload: dict[str, Any]
     metadata: dict[str, Any] = Field(default_factory=dict)
     provenance: dict[str, Any] = Field(default_factory=dict)
+    # When the source event actually happened, as opposed to when it was
+    # ingested (``created_at``). The server has always sent this and the model
+    # has always discarded it, which matters here because it is the column the
+    # timeline orders by: asking for the most recent episodes and then being
+    # unable to see what made them recent is half an answer.
+    #
+    # Optional because a response that omits it must still parse.
+    occurred_at: datetime | None = None
     created_at: datetime
 
 
@@ -184,8 +192,11 @@ class Timeline(BaseModel):
     subject_id: str
     episodes: list[Episode]
     memories: list[Memory]
-    # Present on servers that page the timeline; ``None`` from older servers,
-    # which is not the same as ``False`` — don't read a missing flag as "complete".
+    # ``None`` means the server did not report it, which is not the same as
+    # ``False``. A server that predates the flags says nothing about whether
+    # more records exist, so a missing value must not read as "this page is
+    # complete" — without the field declared at all, pydantic would drop it
+    # and a caller could not tell the two apart either way.
     episodes_has_more: bool | None = None
     memories_has_more: bool | None = None
 
