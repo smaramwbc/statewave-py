@@ -793,6 +793,7 @@ class StatewaveClient:
         limit: int | None = None,
         offset: int | None = None,
         newest_first: bool | None = None,
+        status: str | None = None,
         timeout: float | None = None,
     ) -> Timeline:
         """Get chronological subject timeline.
@@ -813,6 +814,8 @@ class StatewaveClient:
             params["offset"] = offset
         if newest_first is not None:
             params["newest_first"] = "true" if newest_first else "false"
+        if status is not None:
+            params["status"] = status
         return self._request(
             "GET", "/v1/timeline", params=params, model=Timeline,
             timeout=timeout,
@@ -1486,6 +1489,7 @@ class AsyncStatewaveClient:
         limit: int | None = None,
         offset: int | None = None,
         newest_first: bool | None = None,
+        status: str | None = None,
         timeout: float | None = None,
     ) -> Timeline:
         """Get chronological subject timeline.
@@ -1506,6 +1510,8 @@ class AsyncStatewaveClient:
             params["offset"] = offset
         if newest_first is not None:
             params["newest_first"] = "true" if newest_first else "false"
+        if status is not None:
+            params["status"] = status
         return await self._request(
             "GET", "/v1/timeline", params=params, model=Timeline,
             timeout=timeout,
