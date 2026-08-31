@@ -296,3 +296,21 @@ def test_sync_and_async_get_timeline_signatures_agree():
     for name, sync_param in sync_params.items():
         assert sync_param.kind == async_params[name].kind, name
         assert sync_param.default == async_params[name].default, name
+
+
+def test_get_timeline_sends_status_when_supplied():
+    client = StatewaveClient(retry=NO_RETRY)
+    mock_req = MagicMock(return_value=_resp(200, _TIMELINE_RESPONSE))
+    with patch.object(client._http, "request", mock_req):
+        client.get_timeline("subj-1", status="active")
+
+    assert mock_req.call_args.kwargs["params"]["status"] == "active"
+
+
+def test_get_timeline_omits_status_by_default():
+    client = StatewaveClient(retry=NO_RETRY)
+    mock_req = MagicMock(return_value=_resp(200, _TIMELINE_RESPONSE))
+    with patch.object(client._http, "request", mock_req):
+        client.get_timeline("subj-1")
+
+    assert "status" not in mock_req.call_args.kwargs["params"]

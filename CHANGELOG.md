@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `get_timeline` accepts `status="active"` to return only currently
+  authoritative memories (server `GET /v1/timeline?status=active`, v1.5.0+);
+  sent only when supplied, so the default is unchanged.
+
 ## 1.5.0 (2026-08-30)
 
 ### Added — `get_timeline` can page, and can page from the recent end
